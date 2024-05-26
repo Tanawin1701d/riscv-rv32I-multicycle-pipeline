@@ -20,7 +20,7 @@ output wire               curPipReadyToSend,
 
 output reg                r1_valid,
 output reg[REG_IDX-1 : 0] r1_idx,
-output reg[XLEN-1 : 0] r1_val,
+output reg[XLEN-1 : 0]    r1_val,
 
 output reg                r2_valid,
 output reg[REG_IDX-1 : 0] r2_idx,
@@ -113,6 +113,10 @@ parameter waitBefState   = 3'b001;
 parameter sendingState   = 3'b010;
 parameter waitSendState  = 3'b100;
 
+
+parameter LOADSIZE_BIT_l  = FUNCT3_l;
+parameter LOADSIZE_BIT_h  = FUNCT3_l + 2;
+
 wire[UOP_WIDTH-1: 0] op = fetch_data[UOP_WIDTH-1:0];
 
 assign curPipReadyToRcv  = (pipState == waitBefState) | (curPipReadyToSend & nextPipReadyToRcv);
@@ -178,16 +182,19 @@ always @(posedge clk ) begin
     always @(posedge clk ) begin
 
 
-        if (nextPipReadyToRcv && (pipState == sendingState))begin
+        if (nextPipReadyToRcv && (pipState == sendingState)) begin
             
+            pc     <= fetch_cur_pc;
+            nextPc <= fetch_nxt_pc;
+
+
             if (op[1:0] == 2'b11)begin
 
-                if (op[3:2] == 2'b00)begin
+            
 
-                    pc     <= fetch_cur_pc;
-                    nextPc <= fetch_nxt_pc;
-                    
-                    if (op[5:3] == 3'b000) begin
+                if (op[OP_H_h-1:OP_H_l] == 2'b00)begin
+
+                    if (op[OP_L_h-1:OP_L_l] == 3'b000) begin
                         /////////////// do load 
                         isLsUopUse   <= 1;
                         isAluUopUse  <= 0;
@@ -207,11 +214,12 @@ always @(posedge clk ) begin
                         rd_valid <= 0;
                         rd_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
 
-                        isMemLoad <<= 1;
-                        ldextendMode <<= fetch_data[loadExtendModeBit];
+                        isMemLoad    <= 1;
+                        ldsize       <= fetch_data[LOADSIZE_BIT_h-1: LOADSIZE_BIT_l];
+                        ldextendMode <= fetch_data[loadExtendModeBit];
 
 
-                    end else if (op[5:3] == 3'b100) begin
+                    end else if (op[OP_L_h-1:OP_L_l] == 3'b100) begin
                         /////////////// do op imm decode
                         isLsUopUse   <= 0;
                         isAluUopUse  <= 1;
@@ -264,12 +272,12 @@ always @(posedge clk ) begin
                         rd_valid <= 0;
                         rd_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
 
-                        isNeedPc <<= 1;
+                        isNeedPc <= 1;
 
                     end
 
-                end else if (op[3:2] == 2'b01) begin
-                    if (op[5:3] == 3'b000) begin
+                end else if (op[OP_H_h-1:OP_H_l] == 2'b01) begin
+                    if (op[OP_L_h-1:OP_L_l] == 3'b000) begin
                         /////////////// do store store 
                         isLsUopUse   <= 1;
                         isAluUopUse  <= 0;
@@ -294,9 +302,10 @@ always @(posedge clk ) begin
                         rd_idx   <= 0;
 
                         isMemLoad    <= 0;
+                        ldsize       <= fetch_data[LOADSIZE_BIT_h-1: LOADSIZE_BIT_l];
                         ldextendMode <= fetch_data[loadExtendModeBit];
 
-                    end else if (op[5:3] == 3'b100) begin
+                    end else if (op[OP_L_h-1:OP_L_l] == 3'b100) begin
                         /////////////// do op decode
                         isLsUopUse   <= 0;
                         isAluUopUse  <= 1;
@@ -349,8 +358,8 @@ always @(posedge clk ) begin
                         isNeedPc <<= 0;
 
                     end
-                end else if (op[3:2] == 2'b11) begin
-                    if (op[5:3] == 3'b000) begin
+                end else if (op[OP_H_h-1:OP_H_l] == 2'b11) begin
+                    if (op[OP_L_h-1:OP_L_l] == 3'b000) begin
                         /////////////// do branch store 
                         isLsUopUse   <= 0;
                         isAluUopUse  <= 0;
@@ -365,12 +374,13 @@ always @(posedge clk ) begin
                         
 
                         r3_valid <= 1;
-                        r3_idx   <= {
+                        r3_idx   <= 0;
+                        r3_val   <= {
                             {20{fetch_data[IMM_B_12_h-1]}},
-                            fetch_data[IMM_B_12_h-1: IMM_B_12_l],
-                            fetch_data[IMM_B_5_11_h-1: IMM_B_5_11_l],
-                            fetch_data[IMM_B_11_h-1: IMM_B_11_l],
-                            fetch_data[IMM_B_1_5_h-1: IMM_B_1_5_l],
+                                fetch_data[IMM_B_12_h  -1: IMM_B_12_l  ],
+                                fetch_data[IMM_B_11_h  -1: IMM_B_11_l  ],
+                                fetch_data[IMM_B_5_11_h-1: IMM_B_5_11_l],
+                                fetch_data[IMM_B_1_5_h -1: IMM_B_1_5_l ],
                             1'b0
                         };
 
@@ -378,15 +388,15 @@ always @(posedge clk ) begin
                         rd_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
 
 
+                        jumpExtendMode <= fetch_data[13];
                         isJalR         <= 0;
                         isJal          <= 0;
-                        jumpExtendMode <= fetch_data[13];
-                        isEq           <= fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b000;
-                        isNEq          <= fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b001;
+                        isEq           <= (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b000);
+                        isNEq          <= (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b001);
                         isLt           <= (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b100) | (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b110);
                         isGe           <= (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b101) | (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b111);
 
-                    end else if (op[5:3] == 3'b001) begin
+                    end else if (op[OP_L_h-1:OP_L_l] == 3'b001) begin
                         /////////////// do jalr decode
                         isLsUopUse   <= 0;
                         isAluUopUse  <= 0;
@@ -397,7 +407,8 @@ always @(posedge clk ) begin
                         r1_idx   <= fetch_data[IDX_R1_h-1: IDX_R1_l];
 
                         r2_valid <= 1;
-                        r2_idx   <= {{20{fetch_data[IMM_I_0_12_h-1]}}, fetch_data[IMM_I_0_12_h-1: IMM_I_0_12_l]};
+                        r2_idx   <= 0;
+                        r2_val   <= {{20{fetch_data[IMM_I_0_12_h-1]}}, fetch_data[IMM_I_0_12_h-1: IMM_I_0_12_l]};
                         
 
                         r3_valid <= 0;
@@ -429,7 +440,8 @@ always @(posedge clk ) begin
                         r1_val   <= 0;
 
                         r2_valid <= 1;
-                        r2_idx   <=    {    12'b0,
+                        r2_idx   <= 0;
+                        r2_val   <=    {    12'b0,
                                             fetch_data[IMM_J_20_h   -1 :    IMM_J_20_l],
                                             fetch_data[IMM_J_12_20_h-1 : IMM_J_12_20_l],
                                             fetch_data[IMM_J_11_h   -1 : IMM_J_11_l   ],

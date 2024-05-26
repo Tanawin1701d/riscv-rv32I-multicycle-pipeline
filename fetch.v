@@ -31,7 +31,7 @@ module fetch #(
 
     assign mem_readEn        = nextPipReadyToRcv && sendingState;
     assign mem_read_addr     = reqPc;
-    assign curPipReadyToRcv  = (pipState == waitBefState) | (curPipReadyToSend & nextPipReadyToRcv);
+    assign curPipReadyToRcv  =  (pipState == waitBefState)             | (curPipReadyToSend & nextPipReadyToRcv);
     assign curPipReadyToSend = ((pipState == sendingState) & readFin)  | (pipState == waitSendState);
     
 
@@ -79,12 +79,12 @@ module fetch #(
                 if (readFin) begin
                         if (nextPipReadyToRcv) begin
                             if (beforePipReadyToSend) begin
-                                pipState <= sendingState;
+                                pipState <= sendingState; ///// next loop
                             end else begin
                                 pipState <= waitBefState;
                             end
                         end else begin
-                            pipState <= sendingState;
+                            pipState <= waitSendState;
                         end
 
                 end else begin
