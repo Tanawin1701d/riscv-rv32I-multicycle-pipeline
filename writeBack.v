@@ -11,7 +11,8 @@ input wire clk,
 input wire                wb_valid,
 input wire[REG_IDX-1: 0]  wb_idx,
 input wire[XLEN-1   : 0]  wb_val,
-input wire                wb_en_meta,
+input wire                wb_en_valid,
+input wire                wb_en_idx,
 input wire                wb_en_data,
 
 output wire curPipReadyToRcv,
@@ -35,8 +36,11 @@ reg                writeBack_en_data;
 
 always @(posedge clk ) begin
 
-    if (wb_en_meta)begin
+    if (wb_en_valid)begin
         writeBack_valid <= wb_valid;
+    end
+
+    if (wb_en_idx)begin
         writeBack_idx   <= wb_idx;
     end
 

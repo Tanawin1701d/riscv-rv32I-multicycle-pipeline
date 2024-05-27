@@ -1,6 +1,5 @@
 module storageMgmt #( ////////////// multiread single write
-    parameter READ_ADDR_SIZE = 32,
-    parameter ROW_WIDTH = 32, parameter AMT_ROW = 4096,
+    parameter READ_ADDR_SIZE = 28, parameter ROW_WIDTH = 32,
     parameter AMT_READER = 2 //// writer fix to one 
 ) (
 input wire[READ_ADDR_SIZE*AMT_READER-1: 0] readAddrs,
@@ -26,7 +25,7 @@ wire[READ_ADDR_SIZE-1: 0] readIdxMaster;
 wire[AMT_READER-1: 0]     actualEnable;
 wire[AMT_READER-1: 0]     prevfalse;
 
-reg [ROW_WIDTH-1: 0] mem [0: AMT_ROW-1];
+reg [ROW_WIDTH-1: 0] mem [0: 2**READ_ADDR_SIZE -1];
 
 
 assign prevfalse[0] = ~readEns[0];
