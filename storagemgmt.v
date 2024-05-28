@@ -13,7 +13,7 @@ input wire                                 startSig,
 input wire                                 clk,
 
 
-output reg[AMT_READER-1:                0] readfin,
+output wire[AMT_READER-1:                0] readfin,
 output reg[ROW_WIDTH-1 :0]                poolReadData
 
 );
@@ -22,8 +22,11 @@ output reg[ROW_WIDTH-1 :0]                poolReadData
 
 
 wire[READ_ADDR_SIZE-1: 0] readIdxMaster;
-wire[AMT_READER-1: 0]     actualEnable;
-wire[AMT_READER-1: 0]     prevfalse;
+wire[AMT_READER-1    : 0]     actualEnable;
+wire[AMT_READER-1    : 0]     prevfalse;
+
+
+assign readfin = actualEnable;
 
 reg [ROW_WIDTH-1: 0] mem [0: 2**READ_ADDR_SIZE -1];
 
@@ -41,7 +44,7 @@ generate
         assign actualEnable[i] = prevfalse[i-1] & readEns[i];
         assign prevfalse[i]    = prevfalse[i-1] & (~readEns[i]);
 
-        always @(posedge clk) begin
+        always @(*) begin
               if (actualEnable[i]) begin
                     poolReadData = mem[readAddrs[READ_ADDR_SIZE*(i+1)-1: READ_ADDR_SIZE*(i)]];
               end
@@ -54,7 +57,7 @@ generate
 endgenerate 
 
 
-always @(posedge clk) begin
+always @(*) begin
     
     if (actualEnable[0]) begin
         poolReadData = mem[readAddrs[READ_ADDR_SIZE-1: 0]];

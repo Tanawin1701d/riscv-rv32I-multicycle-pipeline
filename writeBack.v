@@ -63,7 +63,7 @@ assign bp_val = ((pipState == sendingState) & writeBack_valid & (writeBack_idx !
 
 
 assign regFileWriteIdx = writeBack_idx;
-assign regFileWRiteVal = writeBack_val;
+assign regFileWriteVal = writeBack_val;
 assign regFileWriteEn  = (pipState == sendingState);
 
 

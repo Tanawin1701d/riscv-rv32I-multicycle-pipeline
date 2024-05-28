@@ -5,15 +5,17 @@ module core(
 );
 
 
-parameter XLEN           = 32;
-parameter MEM_ADDR_SIZE  = 32;
-parameter REG_IDX        = 5;
-parameter UOP_WIDTH      = 7;
-parameter AMT_REG        = 32;
-parameter READ_ADDR_SIZE = 32;
-parameter AMT_READER     = 2;
-parameter AMT_ROW        = 4096; 
-parameter ROW_WIDTH      = 32;
+parameter XLEN              = 32;
+parameter MEM_ADDR_SIZE     = 32;
+parameter REG_IDX           = 5;
+parameter UOP_WIDTH         = 7;
+parameter AMT_REG           = 32;
+parameter READ_ADDR_SIZE    = 32;
+parameter AMT_READER        = 2;
+parameter AMT_ROW           = 4096; 
+parameter ROW_WIDTH         = 32;
+parameter MEM_BIT_SIZE      = 28 -2; //// for 256 megabyte align to 32 bit width
+parameter MEM_START_BIT     = 2;
 
 
 
@@ -139,7 +141,8 @@ assign regFileReadData2 = regFile[regFileReadIdx2];
 wire                wb_valid;   ///// act as wire
 wire[REG_IDX-1 : 0] wb_idx;     ///// act as wire
 wire[XLEN-1 : 0]    wb_val;     ///// act as wire 
-wire                wb_en_meta;      ///// act as wire valid to valid and idx
+wire                wb_en_valid;      ///// act as wire valid to valid and idx
+wire                wb_en_idx;
 wire                wb_en_data;      ///// act as wire valid to valid and idx
 
 /** write back back to execute */
@@ -157,6 +160,19 @@ always@(posedge clk)begin
         if ( (!rst) && regFileWriteEn) begin
             regFile[regFilelWriteIdx] <= regFileWriteVal;
         end
+
+end
+
+
+always@(posedge clk)begin
+
+    if (rst | startSig)begin
+        pc <= 0;
+    end else if (misPredict)begin
+        pc <= restartPc;
+    end else if (mem_readFin1)begin
+        pc <= pc +1;
+    end
 
 end
 
@@ -200,6 +216,14 @@ decoder #(
         .startSig            (startSig),
         .interrupt_start     (misPredict),
         .clk                 (clk),
+
+        .r1_write_valid      (r1_write_valid),
+        .r1_write_val        (r1_write_val),
+        .r1_write_en         (r1_write_en),
+
+        .r2_write_valid      (r2_write_valid),
+        .r2_write_val        (r2_write_val),
+        .r2_write_en         (r2_write_en),
 
         .curPipReadyToRcv    (pip_decoder_ready_to_rcv),
         .curPipReadyToSend   (pip_decoder_ready_to_send),
@@ -322,15 +346,17 @@ execute #(.XLEN(XLEN), .REG_IDX(REG_IDX),
         .bp_idx(bp_idx),
         .bp_val(bp_val),
 
-        .reg1_readData(regFileReadData1),
-        .reg2_readData(regFileReadData2),
+        .regFile1_readData(regFileReadData1),
+        .regFile2_readData(regFileReadData2),
 
-
-        .wb_valid  (wb_valid  ), 
-        .wb_idx    (wb_idx    ),   
-        .wb_val    (wb_val    ),     
-        .wb_en_meta(wb_en_meta),      ///// act as wire valid to valid and idx
-        .wb_en_data(wb_en_data),      ///// act as wire valid to valid and idx
+        .wb_cur_val(regFileWriteVal),
+        
+        .wb_valid   (wb_valid  ), 
+        .wb_idx     (wb_idx    ),   
+        .wb_val     (wb_val    ),     
+        .wb_en_valid(wb_en_valid),      ///// act as wire valid to valid and idx
+        .wb_en_idx  (wb_en_idx),
+        .wb_en_data (wb_en_data),      ///// act as wire valid to valid and idx
 
 
         .misPredict(misPredict),
@@ -372,7 +398,8 @@ execute #(.XLEN(XLEN), .REG_IDX(REG_IDX),
             .wb_valid  (wb_valid),
             .wb_idx    (wb_idx),
             .wb_val    (wb_val),
-            .wb_en_meta(wb_en_meta),
+            .wb_en_valid(wb_en_valid),
+            .wb_en_idx (wb_en_idx),
             .wb_en_data(wb_en_data),
 
 
@@ -389,13 +416,13 @@ execute #(.XLEN(XLEN), .REG_IDX(REG_IDX),
         );
 
     storageMgmt #(
-        .READ_ADDR_SIZE(READ_ADDR_SIZE), .ROW_WIDTH(ROW_WIDTH),
-        .AMT_ROW(AMT_ROW),.AMT_READER(AMT_READER)
+        .READ_ADDR_SIZE(MEM_BIT_SIZE), .ROW_WIDTH(ROW_WIDTH),
+        .AMT_READER(AMT_READER)
     ) storageMgmtBlock (
-        .readAddrs({mem_readAddr2, mem_readAddr1}),
+        .readAddrs({mem_readAddr2[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT], mem_readAddr1[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT]}),
         .readEns({mem_readEn2, mem_readEn1}),
         
-        .writeAddr(mem_writeAddr1),
+        .writeAddr(mem_writeAddr1[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT]),
         .writeData(mem_writeData1),
         .writeEn(mem_writeEn1),
         .rst(rst),
@@ -455,13 +482,22 @@ input wire                       startSig,
 input wire                       interrupt_start,
 input wire                       clk,
 
+input wire                       r1_write_valid,
+input wire [XLEN          -1: 0] r1_write_val,
+input wire                       r1_write_en,
+
+input wire                       r2_write_valid,
+input wire [XLEN          -1: 0] r2_write_val,
+input wire                       r2_write_en,
+
+
 
 output wire               curPipReadyToRcv,
 output wire               curPipReadyToSend,
 
 output reg                r1_valid,
 output reg[REG_IDX-1 : 0] r1_idx,
-output reg[XLEN-1 : 0] r1_val,
+output reg[XLEN-1 : 0]    r1_val,
 
 output reg                r2_valid,
 output reg[REG_IDX-1 : 0] r2_idx,
@@ -508,6 +544,7 @@ output reg                isNeedPc,
 
 output reg                pc,
 output reg                nextPc
+
 );
 endmodule
 
@@ -579,13 +616,18 @@ input wire[XLEN-1: 0]      mem_radData,
 input wire[REG_IDX-1 : 0] bp_idx,
 input wire[XLEN-1 : 0]    bp_val,
 
-input  wire[XLEN-1 : 0]    reg1_readData,
-input  wire[XLEN-1 : 0]    reg2_readData,
+input  wire[XLEN-1 : 0]    regFile1_readData,
+input  wire[XLEN-1 : 0]    regFile2_readData,
+
+input  wire[XLEN-1 : 0]    wb_cur_val,
+
+
 
 output reg                wb_valid,   ///// act as wire
 output reg[REG_IDX-1 : 0] wb_idx,     ///// act as wire
 output reg[XLEN-1 : 0]    wb_val,     ///// act as wire 
-output reg                wb_en_meta,      ///// act as wire valid to valid and idx
+output reg                wb_en_valid,      ///// act as wire valid to valid and idx
+output reg                wb_en_idx,
 output reg                wb_en_data,      ///// act as wire valid to valid and idx
 
 
@@ -610,9 +652,8 @@ output reg                 r2_write_valid,
 output reg[XLEN-1 : 0]     r2_write_val,
 output reg                 r2_write_en,
 
-output wire                      curPipReadyToRcv,
-output wire                      curPipReadyToSend
-
+output wire                curPipReadyToRcv,
+output wire                curPipReadyToSend
 
 );
 endmodule
@@ -630,7 +671,8 @@ input wire clk,
 input wire                wb_valid,
 input wire[REG_IDX-1: 0]  wb_idx,
 input wire[XLEN-1   : 0]  wb_val,
-input wire                wb_en_meta,
+input wire                wb_en_valid,
+input wire                wb_en_idx,
 input wire                wb_en_data,
 
 output wire curPipReadyToRcv,
@@ -643,12 +685,10 @@ output wire[REG_IDX-1: 0] regFileWriteIdx,
 output wire[XLEN-1   : 0] regFileWriteVal,
 output wire               regFileWriteEn
 );
-
 endmodule
 
 module storageMgmt #( ////////////// multiread single write
-    parameter READ_ADDR_SIZE = 32,
-    parameter ROW_WIDTH = 32, parameter AMT_ROW = 4096,
+    parameter READ_ADDR_SIZE = 28, parameter ROW_WIDTH = 32,
     parameter AMT_READER = 2 //// writer fix to one 
 ) (
 input wire[READ_ADDR_SIZE*AMT_READER-1: 0] readAddrs,

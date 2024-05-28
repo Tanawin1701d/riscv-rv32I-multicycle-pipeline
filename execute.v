@@ -63,8 +63,8 @@ input wire                 nextPc,
 input wire                 mem_readFin,
 input wire[XLEN-1: 0]      mem_radData,
 
-input wire[REG_IDX-1 : 0] bp_idx,
-input wire[XLEN-1 : 0]    bp_val,
+input wire[REG_IDX-1 : 0]  bp_idx,
+input wire[XLEN-1 : 0]     bp_val,
 
 input  wire[XLEN-1 : 0]    regFile1_readData,
 input  wire[XLEN-1 : 0]    regFile2_readData,
@@ -102,8 +102,8 @@ output reg                 r2_write_valid,
 output reg[XLEN-1 : 0]     r2_write_val,
 output reg                 r2_write_en,
 
-output wire                      curPipReadyToRcv,
-output wire                      curPipReadyToSend
+output wire                curPipReadyToRcv,
+output wire                curPipReadyToSend
 
 );
 

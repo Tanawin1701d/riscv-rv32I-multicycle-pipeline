@@ -14,6 +14,15 @@ input wire                       startSig,
 input wire                       interrupt_start,
 input wire                       clk,
 
+input wire                       r1_write_valid,
+input wire [XLEN          -1: 0] r1_write_val,
+input wire                       r1_write_en,
+
+input wire                       r2_write_valid,
+input wire [XLEN          -1: 0] r2_write_val,
+input wire                       r2_write_en,
+
+
 
 output wire               curPipReadyToRcv,
 output wire               curPipReadyToSend,
@@ -67,11 +76,6 @@ output reg                isNeedPc,
 
 output reg                pc,
 output reg                nextPc
-
-
-
-
-
 
 );
 
@@ -473,6 +477,22 @@ always @(posedge clk ) begin
                 end
 
             end
+        end
+    
+    end
+
+    //////// control register in case not decoding
+    always @(posedge clk) begin
+
+        if (r1_write_en)begin
+            r1_valid <= r1_write_valid;
+            r1_val   <= r1_write_val;
+        end
+
+        if (r2_write_en)begin
+            r2_valid <= r2_write_valid;
+            r2_val   <= r2_write_val;
+
         end
     
     end
