@@ -16,27 +16,48 @@ integer cycle = 0;
 integer PRINTROW_PERCYCLE = 10;
 integer COLWIDTH          = 25;
 integer AMT_REG           = 32;
+integer AMOUNT_SWAP       = 5000;
+integer MEM_BIT_SIZE      = 28;
+integer MEM_BIT_SIZE_RD_32= 26;
 integer file;
 integer programFileIdx;
 integer programReadStatus;
-
+integer swapping = 0;
 
 initial begin
-    file = $fopen("slot.txt", "w");
+    file = $fopen("output/WORKLOADARGS_slot.txt", "w");
     if (file == 0) begin
         $display("error: could not open file for writing.");
         $finish;
     end
 end
 
+
+integer fillMemIdx = 0;
+//////////////// read data from program 
 initial begin
-    programFileIdx = $fopen("program/alu1", "rb");
 
+    // for (fillMemIdx = 0; fillMemIdx < (2**MEM_BIT_SIZE_RD_32); fillMemIdx = fillMemIdx + 1) begin
+    //     core_dut.storageMgmtBlock.mem[fillMemIdx] = 0;
+    // end
+
+    for (fillMemIdx = 0; fillMemIdx < 512; fillMemIdx = fillMemIdx + 1) begin
+        core_dut.storageMgmtBlock.mem[fillMemIdx] = 0;
+    end
+
+    programFileIdx = $fopen("program/WORKLOADARGS/asm.out", "rb");
     programReadStatus = $fread(core_dut.storageMgmtBlock.mem, programFileIdx);
-
     if (programReadStatus == 0) begin
         $display("error: could not read programfile");
         $finish;
+    end
+    for (swapping = 0; swapping < AMOUNT_SWAP; swapping = swapping + 1) begin
+        core_dut.storageMgmtBlock.mem[swapping] = {
+            core_dut.storageMgmtBlock.mem[swapping][  8-1 :  0],
+            core_dut.storageMgmtBlock.mem[swapping][ 16-1 :  8],
+            core_dut.storageMgmtBlock.mem[swapping][ 24-1 : 16],
+            core_dut.storageMgmtBlock.mem[swapping][ 32-1 : 24]
+        };
     end
 
 end
@@ -60,7 +81,7 @@ core core_dut (
 
 initial begin
     clk = 0;
-    forever #5 clk = ~clk; /// 10 ns period
+    forever #(CLK_PEROID/2) clk = ~clk; /// 10 ns period
 end
 
 
@@ -78,16 +99,22 @@ end
 
 
 initial begin
-    
+        #(CLK_PEROID/2);
     for (cycle = 0; cycle < AMT_SIM_CLK; cycle++)begin
         
         fetchWriter;
         decodeWriter;
         execWriter;
         writeBackWriter;
+        //writeReg;
         $fwrite(file, "----------------------- end cycle %d -----------------------\n", cycle);
+        //$display("----------------------- end cycle %d -----------------------\n", cycle);
+        #CLK_PEROID;
 
     end
+    $fclose(file);
+    $fclose(programFileIdx);
+    $finish;
 
 
 
@@ -105,10 +132,10 @@ task fetchWriter;
             $fwrite(file, "fetch    : WAIT_RECV\n");
         end else if (core_dut.fetchBlock.pipState == core_dut.fetchBlock.sendingState) begin
             if (core_dut.fetchBlock.readFin) begin
-                $fwrite(file, "fetch    : GOT data (addr) %h (data) \n", core_dut.fetchBlock.mem_read_addr, 
-                                                                         core_dut.fetchBlock.mem_read_data);
+                $fwrite(file, "fetch    : GOT data (addr) 0x%h (data) 0x%h (pc) 0x%h\n", core_dut.fetchBlock.mem_read_addr, 
+                                                                         core_dut.fetchBlock.mem_read_data, core_dut.fetchBlock.fetch_cur_pc);
             end else begin
-                $fwrite(file, "fetch    : REQUESTING addr %h \n", core_dut.fetchBlock.mem_read_addr);
+                $fwrite(file, "fetch    : REQUESTING addr 0x%h \n", core_dut.fetchBlock.mem_read_addr);
             end
         end else if (core_dut.fetchBlock.pipState == core_dut.fetchBlock.waitSendState) begin
             $fwrite(file, "fetch    : WAIT_SEND\n");
@@ -132,36 +159,34 @@ task decodeWriter;
         end else if (core_dut.decoderBlock.pipState == core_dut.decoderBlock.sendingState) begin
             if (core_dut.decoderBlock.nextPipReadyToRcv) begin
 
-                if          (core_dut.decoderBlock.op == 7'b00_000)begin
+                if          (core_dut.decoderBlock.op == 7'b00_000_11)begin
                     $fwrite(file, "decode   : LOAD\n");
-                end else if (core_dut.decoderBlock.op == 7'b00_011) begin
+                end else if (core_dut.decoderBlock.op == 7'b00_011_11) begin
                     $fwrite(file, "decode   : MISC_MEM should not be here\n");
-                end else if (core_dut.decoderBlock.op == 7'b00_100) begin
+                end else if (core_dut.decoderBlock.op == 7'b00_100_11) begin
                     $fwrite(file, "decode   : OP-IMM\n");
-                end else if (core_dut.decoderBlock.op == 7'b00_101) begin
+                end else if (core_dut.decoderBlock.op == 7'b00_101_11) begin
                     $fwrite(file, "decode   : AUIPC\n");
-                end else if (core_dut.decoderBlock.op == 7'b01_000) begin
+                end else if (core_dut.decoderBlock.op == 7'b01_000_11) begin
                     $fwrite(file, "decode   : STORE\n");
-                end else if (core_dut.decoderBlock.op == 7'b01_100) begin
+                end else if (core_dut.decoderBlock.op == 7'b01_100_11) begin
                     $fwrite(file, "decode   : OP\n");
-                end else if (core_dut.decoderBlock.op == 7'b01_101) begin
+                end else if (core_dut.decoderBlock.op == 7'b01_101_11) begin
                     $fwrite(file, "decode   : LUI\n");
-                end else if (core_dut.decoderBlock.op == 7'b11_000) begin
+                end else if (core_dut.decoderBlock.op == 7'b11_000_11) begin
                     $fwrite(file, "decode   : BRANCH\n");
-                end else if (core_dut.decoderBlock.op == 7'b11_001) begin
+                end else if (core_dut.decoderBlock.op == 7'b11_001_11) begin
                     $fwrite(file, "decode   : JALR\n");
-                end else if (core_dut.decoderBlock.op == 7'b11_011) begin
+                end else if (core_dut.decoderBlock.op == 7'b11_011_11) begin
                     $fwrite(file, "decode   : JAL\n");
-                end else if (core_dut.decoderBlock.op == 7'b11_100) begin
+                end else if (core_dut.decoderBlock.op == 7'b11_100_11) begin
                     $fwrite(file, "decode   : SYSTEM should not be here\n");
                 end else begin
                     $fwrite(file, "decode   : ERROR op\n");
                 end
 
-                $fwrite(file, "decode   : GOT data (addr) %h (data) \n", core_dut.decoderBlock.mem_read_addr, 
-                                                                         core_dut.decoderBlock.mem_read_data);
             end else begin
-                $fwrite(file, "decode   : EXECUTING BLOCKED \n", core_dut.decoderBlock.mem_read_addr);
+                $fwrite(file, "decode   : wait EXECUTING BLOCKED \n");
             end
         end else if (core_dut.decoderBlock.pipState == core_dut.decoderBlock.waitSendState) begin
             $fwrite(file, "decode   : WAIT_SEND\n");
@@ -180,7 +205,9 @@ task execWriter;
             $fwrite(file, "exec     : IDLE\n");
         end else if (core_dut.execBlock.pipState == core_dut.execBlock.waitBefState)begin
             $fwrite(file, "exec     : WAIT_RECV\n");
-        end else if (core_dut.execBlock.pipState == core_dut.execBlock.sendingState) begin
+        end else if (core_dut.execBlock.pipState == core_dut.execBlock.regAccess) begin
+            $fwrite(file, "exec     : reg access  regFIlePort2 readVal %d  valid %d\n", core_dut.execBlock.regFile2_readData, core_dut.execBlock.r2_valid);
+        end else if (core_dut.execBlock.pipState == core_dut.execBlock.simpleExec) begin
             
                 if (core_dut.execBlock.isAluUopUse) begin
                     
@@ -219,7 +246,7 @@ task execWriter;
                     end else begin
                             $fwrite(file, "exec     : STORE"           );
                     end
-
+                    ///$fwrite(file, "(%d)", core_dut.execBlock.ldsize);
                     if (core_dut.execBlock.ldsize == 2'b00)begin  $fwrite(file, "8"); end else 
                     if (core_dut.execBlock.ldsize == 2'b01) begin $fwrite(file, "16");end else 
                     if (core_dut.execBlock.ldsize == 2'b10) begin $fwrite(file, "32");end else 
@@ -230,19 +257,29 @@ task execWriter;
                     $fwrite(file, "exec     : unknown type");
                 end
 
+                $fwrite(file,"\n");
 
-
-                $fwrite(file, "dayta |r1 v%d idx%d val%d|r2 v%d idx%d val%d\n",
+                $fwrite(file, "exec(dt) : |r1 v%d idx%d val%d|r2 v%d idx%d val%d\n",
                     core_dut.execBlock.r1_valid, core_dut.execBlock.r1_idx, core_dut.execBlock.r1_val,
                     core_dut.execBlock.r2_valid, core_dut.execBlock.r2_idx, core_dut.execBlock.r2_val
                 );
-                $fwrite(file, "exec     : r3 v%d idx%d val%d|rd v%d idx%d val%d|pc %h\n",
+                $fwrite(file, "exec(dt) : |r3 v%d idx%d val%d|rd v%d idx%d val%d|pc 0x%h|mispredict %d\n",
                     core_dut.execBlock.r3_valid, core_dut.execBlock.r3_idx, core_dut.execBlock.r3_val,
                     core_dut.execBlock.rd_valid, core_dut.execBlock.rd_idx, core_dut.execBlock.rd_val,
-                    core_dut.execBlock.pc
+                    core_dut.execBlock.pc      , core_dut.execBlock.misPredict
                 );
-
-
+        end else if (core_dut.execBlock.pipState == core_dut.execBlock.shiftLeftReg |
+                     core_dut.execBlock.pipState == core_dut.execBlock.shiftRightReg |
+                     core_dut.execBlock.pipState == core_dut.execBlock.shiftRightArReg) begin
+            $fwrite(file, "exec     : reg shifting\n");
+        end else if (core_dut.execBlock.pipState == core_dut.execBlock.ldstReg) begin
+            $fwrite(file, "exec     : loading storing read data (%d) (pool %d) (addr %d) (en %d) (readmaster %d) (readmem data %d)\n", core_dut.execBlock.mem_radData, 
+                                                core_dut.mem_readPool, 
+                                                core_dut.mem_readAddr2, 
+                                                core_dut.mem_readEn2, 
+                                                core_dut.storageMgmtBlock.readIdxMaster,
+                                                core_dut.storageMgmtBlock.poolReadData
+                                                );
         end else if (core_dut.execBlock.pipState == core_dut.execBlock.waitSendState) begin
             $fwrite(file, "exec     : WAIT_SEND\n");
         end else begin
@@ -282,12 +319,30 @@ task writeBackWriter;
 endtask
 
 
+integer regIter = 0;
+task writeReg;
+
+    begin
+    
+        // $fwrite(file, "reg      :");
+        // for (regIter = 0; regIter < 32; regIter = regIter + 1)begin
+        //     $fwrite(file, " r%d = %d |", regIter, core_dut.regFile[regIter]);
+        // end
+        // $fwrite(file, "\n");
+
+        $fwrite(file, "mem      : 257 = %d", core_dut.storageMgmtBlock.mem[257]);
+
+    end
+
+endtask
+
+
 endmodule
 
 
-module core(
-    input wire clk,
-    input wire rst,
-    input wire startSig
-);
-endmodule
+// module core(
+//     input wire clk,
+//     input wire rst,
+//     input wire startSig
+// );
+// endmodule

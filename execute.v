@@ -1,64 +1,66 @@
+`timescale 1ns/1ps
+
 module execute #(
     parameter XLEN      = 32, parameter REG_IDX = 5,
     parameter UOP_WIDTH = 7 , parameter AMT_REG = 32,
     parameter READ_ADDR_SIZE = 32
 ) (
 
-input wire                 beforePipReadyToSend,
-input wire                 nextPipReadyToRcv,
-input wire                 startSig,
-input wire                 rst,
-input wire                 clk,
+input wire                      beforePipReadyToSend,
+input wire                      nextPipReadyToRcv,
+input wire                      startSig,
+input wire                      rst,
+input wire                      clk,
     
-input wire                 r1_valid,
-input wire[REG_IDX-1 : 0]  r1_idx,
-input wire[XLEN-1 : 0]     r1_val,
+input wire                      r1_valid,
+input wire[REG_IDX-1 : 0]       r1_idx,
+input wire[XLEN-1 : 0]          r1_val,
 
-input wire                 r2_valid,
-input wire[REG_IDX-1 : 0]  r2_idx,
-input wire[XLEN-1 : 0]     r2_val,
+input wire                      r2_valid,
+input wire[REG_IDX-1 : 0]       r2_idx,
+input wire[XLEN-1 : 0]          r2_val,
 
-input wire                 r3_valid,
-input wire[REG_IDX-1 : 0]  r3_idx,
-input wire[XLEN-1 : 0]     r3_val,
+input wire                      r3_valid,
+input wire[REG_IDX-1 : 0]       r3_idx,
+input wire[XLEN-1 : 0]          r3_val,
 
-input wire                 rd_valid,
-input wire[REG_IDX-1 : 0]  rd_idx,
-input wire[XLEN-1 : 0]     rd_val,
+input wire                      rd_valid,
+input wire[REG_IDX-1 : 0]       rd_idx,
+input wire[XLEN-1 : 0]          rd_val,
 
-input wire                 isLsUopUse,
-input wire                 isMemLoad,
-input wire[1:0]            ldsize,
-input wire                 ldextendMode,
-
-
-input wire                 isAluUopUse,
-input wire                 isAdd,
-input wire                 isSub,
-input wire                 isXor,
-input wire                 isOr,
-input wire                 isAnd,
-input wire                 isCmpLessThanSign,
-input wire                 isCmpLessThanUSign,
-input wire                 isShiftLeftLogical,
-input wire                 isShiftRightLogical,
-input wire                 isShiftRightArith,
+input wire                      isLsUopUse,
+input wire                      isMemLoad,
+input wire[1:0]                 ldsize,
+input wire                      ldextendMode,
 
 
-input wire                 isJmpUopUse,
-input wire                 isJalR,
-input wire                 isJal,
-input wire                 jumpExtendMode,
-input wire                 isEq,
-input wire                 isNEq,
-input wire                 isLt,
-input wire                 isGe,
+input wire                      isAluUopUse,
+input wire                      isAdd,
+input wire                      isSub,
+input wire                      isXor,
+input wire                      isOr,
+input wire                      isAnd,
+input wire                      isCmpLessThanSign,
+input wire                      isCmpLessThanUSign,
+input wire                      isShiftLeftLogical,
+input wire                      isShiftRightLogical,
+input wire                      isShiftRightArith,
 
-input wire                 isLdPcUopUse,
-input wire                 isNeedPc,
 
-input wire                 pc,
-input wire                 nextPc,
+input wire                      isJmpUopUse,
+input wire                      isJalR,
+input wire                      isJal,
+input wire                      jumpExtendMode,
+input wire                      isEq,
+input wire                      isNEq,
+input wire                      isLt,
+input wire                      isGe,
+
+input wire                      isLdPcUopUse,
+input wire                      isNeedPc,
+
+input wire[READ_ADDR_SIZE-1: 0] pc,
+input wire[READ_ADDR_SIZE-1: 0] nextPc,
 
 input wire                 mem_readFin,
 input wire[XLEN-1: 0]      mem_radData,
@@ -84,11 +86,11 @@ output reg                wb_en_data,      ///// act as wire valid to valid and 
 output wire                      misPredict,
 output wire[READ_ADDR_SIZE-1: 0] reqPc,
 
-output reg                      mem_readEn,
-output reg[READ_ADDR_SIZE-1: 0] mem_readAddr,
-output reg                      mem_writeEn,
-output reg[READ_ADDR_SIZE-1: 0] mem_writeAddr,
-output reg[XLEN          -1: 0] mem_writeData,
+output wire                      mem_readEn,
+output wire[READ_ADDR_SIZE-1: 0] mem_readAddr,
+output reg                       mem_writeEn,
+output reg[READ_ADDR_SIZE-1: 0]  mem_writeAddr,
+output reg[XLEN          -1: 0]  mem_writeData,
 
 output reg[REG_IDX-1: 0]    regFile1_readIdx,
 output reg[REG_IDX-1: 0]    regFile2_readIdx,
@@ -147,6 +149,9 @@ wire cmpLtUnSign = r1_val < r2_val;
 
 always @(posedge clk ) begin
 
+
+        ////$display("current state is %d", pipState);
+
         if (rst) begin
             pipState <= idleState;
         
@@ -186,7 +191,9 @@ always @(posedge clk ) begin
                 if (isLsUopUse) begin
                     pipState <= ldstReg;
                 end
-                if ((~isAluUopUse) & (~isLsUopUse)) begin
+                if (  ~(isLsUopUse | 
+                      (isAluUopUse & (isShiftLeftLogical | isShiftRightLogical | isShiftRightArith))
+                      )) begin
                     if (nextPipReadyToRcv)begin
                         if (beforePipReadyToSend) begin
                             pipState <= regAccess;
@@ -197,6 +204,13 @@ always @(posedge clk ) begin
                         pipState <= waitSendState;
                     end
                 end
+
+            end else if (((
+                    (pipState == shiftLeftReg   ) | 
+                    (pipState == shiftRightReg  ) |
+                    (pipState == shiftRightArReg)) & ( r2_val[4:0] > 1)) | 
+                    ((pipState == ldstReg) & (~mem_readFin))) begin
+                pipState <= pipState;
 
             end else if (
                    ((
@@ -311,7 +325,7 @@ always @(*) begin
     wb_en_valid   = 0;
     wb_en_idx     = 0;
     wb_en_data    = 0;
-    mem_writeData = 0;
+    ///////mem_writeData = 0;
 
     if (pipState == regAccess) begin
         wb_valid    = rd_valid;
@@ -376,10 +390,11 @@ always @(*) begin
     end else if (pipState == ldstReg) begin
         if ( (ldsize == 2'b00) & mem_readFin) begin ///// 8 bit mode
             wb_en_data = 1;
-            if (ldextendMode)begin /////// sign extend mode
-                wb_val = {{24{mem_radData[7]}},mem_radData[7:0]};
-            end else begin
+            if (ldextendMode)begin /////// unsigned extend mode
                 wb_val = {24'b0,mem_radData[7:0]};
+            end else begin
+                wb_val = {{24{mem_radData[7]}},mem_radData[7:0]};
+                
             end
 
             if (~isMemLoad)begin
@@ -389,10 +404,11 @@ always @(*) begin
 
         if ( (ldsize == 2'b01) & mem_readFin) begin ///// 16 bit mode
             wb_en_data = 1;
-            if (ldextendMode)begin /////// sign extend mode
-                wb_val = {{16{mem_radData[15]}},mem_radData[15:0]};
-            end else begin
+            if (ldextendMode)begin /////// unsigned extend mode
                 wb_val = {16'b0,mem_radData[15:0]};
+            end else begin
+                wb_val = {{16{mem_radData[15]}},mem_radData[15:0]};
+                
             end
 
             if (~isMemLoad)begin
@@ -402,7 +418,7 @@ always @(*) begin
 
         if ( (ldsize == 2'b10) & mem_readFin) begin ///// 32 bit mode
             wb_en_data = 1;
-            wb_val = mem_radData;
+           wb_val = mem_radData;
 
             if (~isMemLoad)begin
                 mem_writeData = r2_val;
@@ -414,29 +430,39 @@ end
     ///////////// test pip 
 
 
-always @(*) begin
 
-    mem_readEn       = 0;    
-    mem_readAddr     = r1_val + r3_val;      
+assign mem_readEn       = pipState == ldstReg;
+assign mem_readAddr     = r1_val + r3_val;
+// always @(*) begin
+
+//     mem_readEn       = 0;    
+//     mem_readAddr     = r1_val + r3_val;      
+    
+//     if ( pipState ==  ldstReg) begin
+//         mem_readEn = 1;
+        
+//     end
+    
+// end
+
+always @(*) begin
     mem_writeEn      = 0;     
     mem_writeAddr    = r1_val + r3_val;       
     
-
     if ( pipState ==  ldstReg) begin
-        mem_readEn = 1;
         if ( (~isMemLoad) & mem_readFin)begin
             mem_writeEn      = 1;
         end
     end
-    
+// 
 end
 
 assign misPredict = ((pipState == simpleExec) && isJmpUopUse) & (
 isJalR         |         
 isJal          |        
 (isEq &  (r1_val == r2_val)               ) | (isNEq   &  (r1_val != r2_val)                  ) | 
-(isLt &  (jumpExtendMode & cmpLtSign)     ) | (isGe    &  (jumpExtendMode & ~(cmpLtSign))     ) |
-(isLt &  ((~jumpExtendMode) & cmpLtUnSign)) | (isGe    &  ((~jumpExtendMode) & (~cmpLtUnSign)))
+(isLt &  (jumpExtendMode & cmpLtUnSign)     ) | (isGe    &  (jumpExtendMode & (~cmpLtUnSign))     ) |
+(isLt &  ((~jumpExtendMode) & cmpLtSign)) | (isGe    &  ((~jumpExtendMode) & (~cmpLtSign)))
 );
 
 assign reqPc = ((pipState == simpleExec) && isJmpUopUse) ?

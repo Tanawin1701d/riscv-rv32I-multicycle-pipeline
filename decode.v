@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module decoder #(
     parameter XLEN      = 32, parameter REG_IDX = 5,
     parameter UOP_WIDTH = 7 , parameter AMT_REG = 32,
@@ -24,58 +26,58 @@ input wire                       r2_write_en,
 
 
 
-output wire               curPipReadyToRcv,
-output wire               curPipReadyToSend,
+output wire                     curPipReadyToRcv,
+output wire                     curPipReadyToSend,
 
-output reg                r1_valid,
-output reg[REG_IDX-1 : 0] r1_idx,
-output reg[XLEN-1 : 0]    r1_val,
+output reg                      r1_valid,
+output reg[REG_IDX-1 : 0]       r1_idx,
+output reg[XLEN-1 : 0]          r1_val,
 
-output reg                r2_valid,
-output reg[REG_IDX-1 : 0] r2_idx,
-output reg[XLEN-1 : 0]    r2_val,
+output reg                      r2_valid,
+output reg[REG_IDX-1 : 0]       r2_idx,
+output reg[XLEN-1 : 0]          r2_val,
 
-output reg                r3_valid,
-output reg[REG_IDX-1 : 0] r3_idx,
-output reg[XLEN-1 : 0]    r3_val,
+output reg                      r3_valid,
+output reg[REG_IDX-1 : 0]       r3_idx,
+output reg[XLEN-1 : 0]          r3_val,
 
-output reg                rd_valid,
-output reg[REG_IDX-1 : 0] rd_idx,
-output reg[XLEN-1 : 0]    rd_val,
+output reg                      rd_valid,
+output reg[REG_IDX-1 : 0]       rd_idx,
+output reg[XLEN-1 : 0]          rd_val,
 
-output reg                isLsUopUse,
-output reg                isMemLoad,
-output reg[1:0]           ldsize,
-output reg                ldextendMode,
-
-
-output reg                isAluUopUse,
-output reg                isAdd,
-output reg                isSub,
-output reg                isXor,
-output reg                isOr,
-output reg                isAnd,
-output reg                isCmpLessThanSign,
-output reg                isCmpLessThanUSign,
-output reg                isShiftLeftLogical,
-output reg                isShiftRightLogical,
-output reg                isShiftRightArith,
+output reg                      isLsUopUse,
+output reg                      isMemLoad,
+output reg[1:0]                 ldsize,
+output reg                      ldextendMode,
 
 
-output reg                isJmpUopUse,
-output reg                isJalR,
-output reg                isJal,
-output reg                jumpExtendMode,
-output reg                isEq,
-output reg                isNEq,
-output reg                isLt,
-output reg                isGe,
+output reg                      isAluUopUse,
+output reg                      isAdd,
+output reg                      isSub,
+output reg                      isXor,
+output reg                      isOr,
+output reg                      isAnd,
+output reg                      isCmpLessThanSign,
+output reg                      isCmpLessThanUSign,
+output reg                      isShiftLeftLogical,
+output reg                      isShiftRightLogical,
+output reg                      isShiftRightArith,
 
-output reg                isLdPcUopUse,
-output reg                isNeedPc,
 
-output reg                pc,
-output reg                nextPc
+output reg                      isJmpUopUse,
+output reg                      isJalR,
+output reg                      isJal,
+output reg                      jumpExtendMode,
+output reg                      isEq,
+output reg                      isNEq,
+output reg                      isLt,
+output reg                      isGe,
+
+output reg                      isLdPcUopUse,
+output reg                      isNeedPc,
+
+output reg[READ_ADDR_SIZE-1: 0] pc,
+output reg[READ_ADDR_SIZE-1: 0] nextPc
 
 );
 
@@ -124,7 +126,7 @@ parameter LOADSIZE_BIT_h  = FUNCT3_l + 2;
 wire[UOP_WIDTH-1: 0] op = fetch_data[UOP_WIDTH-1:0];
 
 assign curPipReadyToRcv  = (pipState == waitBefState) | (curPipReadyToSend & nextPipReadyToRcv);
-assign curPipReadyToSend = ( (pipState == sendingState) & nextPipReadyToRcv) | (pipState == waitSendState);
+assign curPipReadyToSend = (( (pipState == sendingState) & nextPipReadyToRcv) | (pipState == waitSendState)) & (~interrupt_start);
 
 
 
@@ -241,7 +243,7 @@ always @(posedge clk ) begin
                         r3_idx   <= 0;
 
                         rd_valid <= 0;
-                        r1_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
+                        rd_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
 
                         isAdd                <= fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b000;
                         isSub                <= 0;
@@ -319,14 +321,14 @@ always @(posedge clk ) begin
                         r1_valid <= 0;
                         r1_idx   <= fetch_data[IDX_R1_h-1: IDX_R1_l];
 
-                        r2_valid <= 1;
+                        r2_valid <= 0;
                         r2_idx   <= fetch_data[IDX_R2_h-1: IDX_R2_l];
 
                         r3_valid <= 0;
                         r3_idx   <= 0;
 
                         rd_valid <= 0;
-                        r1_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
+                        rd_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
 
                         isAdd                <= (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b000) & (fetch_data[30] == 0);
                         isSub                <= (fetch_data[FUNCT3_h-1: FUNCT3_l] == 3'b000) & (fetch_data[30] == 1);
@@ -359,7 +361,7 @@ always @(posedge clk ) begin
                         rd_valid <= 0;
                         rd_idx   <= fetch_data[IDX_RD_h-1: IDX_RD_l];
 
-                        isNeedPc <<= 0;
+                        isNeedPc <= 0;
 
                     end
                 end else if (op[OP_H_h-1:OP_H_l] == 2'b11) begin
@@ -472,10 +474,18 @@ always @(posedge clk ) begin
                     end
 
                 end else begin
-
+                    isLsUopUse   <= 0;
+                    isAluUopUse  <= 0;
+                    isJmpUopUse  <= 0;
+                    isLdPcUopUse <= 0;
 
                 end
 
+            end else begin
+                isLsUopUse   <= 0;
+                isAluUopUse  <= 0;
+                isJmpUopUse  <= 0;
+                isLdPcUopUse <= 0;
             end
         end
     

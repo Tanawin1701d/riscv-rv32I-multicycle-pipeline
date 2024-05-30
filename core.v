@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module core(
     input wire clk,
     input wire rst,
@@ -114,8 +116,8 @@ wire                isGe;
 wire                isLdPcUopUse;
 wire                isNeedPc;
 
-wire                pcFromDec;
-wire                nextPcFromDec;
+wire[READ_ADDR_SIZE-1: 0] pcFromDec;
+wire[READ_ADDR_SIZE-1: 0] nextPcFromDec;
 
 /** execute back to decode */
 wire                r1_write_valid;
@@ -171,7 +173,7 @@ always@(posedge clk)begin
     end else if (misPredict)begin
         pc <= restartPc;
     end else if (mem_readFin1)begin
-        pc <= pc +1;
+        pc <= pc +4;
     end
 
 end
@@ -191,7 +193,7 @@ fetch #(.XLEN(XLEN), .READ_ADDR_SIZE(READ_ADDR_SIZE)) fetchBlock(
 .interrupt_start     (misPredict),
 .clk                 (clk),
 
-.mem_readEn       (mem_readEn),
+.mem_readEn       (mem_readEn1),
 .mem_read_addr    (mem_readAddr1),
 .fetch_data       (fetch_data),
 .fetch_cur_pc     (fetch_cur_pc),
@@ -440,271 +442,271 @@ endmodule
 
 
 
-module fetch #(
-    parameter XLEN = 32,
-    parameter READ_ADDR_SIZE = 32
-)(
-    input wire[XLEN-1: 0]           mem_read_data,
-    input wire                      readFin,
-    input wire[READ_ADDR_SIZE-1: 0] reqPc,
-    input wire                      beforePipReadyToSend,
-    input wire                      nextPipReadyToRcv,
-    input wire                      rst,
-    input wire                      startSig,
-    input wire                      interrupt_start,
-    input wire                      clk,
+// module fetch #(
+//     parameter XLEN = 32,
+//     parameter READ_ADDR_SIZE = 32
+// )(
+//     input wire[XLEN-1: 0]           mem_read_data,
+//     input wire                      readFin,
+//     input wire[READ_ADDR_SIZE-1: 0] reqPc,
+//     input wire                      beforePipReadyToSend,
+//     input wire                      nextPipReadyToRcv,
+//     input wire                      rst,
+//     input wire                      startSig,
+//     input wire                      interrupt_start,
+//     input wire                      clk,
     
     
-    output wire                      mem_readEn,
-    output wire[READ_ADDR_SIZE-1: 0] mem_read_addr,
-    output reg [XLEN          -1: 0] fetch_data,
-    output reg [READ_ADDR_SIZE-1: 0] fetch_cur_pc,
-    output reg [READ_ADDR_SIZE-1: 0] fetch_nxt_pc,
-    output wire                      curPipReadyToRcv,
-    output wire                      curPipReadyToSend
+//     output wire                      mem_readEn,
+//     output wire[READ_ADDR_SIZE-1: 0] mem_read_addr,
+//     output reg [XLEN          -1: 0] fetch_data,
+//     output reg [READ_ADDR_SIZE-1: 0] fetch_cur_pc,
+//     output reg [READ_ADDR_SIZE-1: 0] fetch_nxt_pc,
+//     output wire                      curPipReadyToRcv,
+//     output wire                      curPipReadyToSend
     
-);
-endmodule
+// );
+// endmodule
 
-module decoder #(
-    parameter XLEN      = 32, parameter REG_IDX = 5,
-    parameter UOP_WIDTH = 7 , parameter AMT_REG = 32,
-    parameter READ_ADDR_SIZE = 32
-)(
+// module decoder #(
+//     parameter XLEN      = 32, parameter REG_IDX = 5,
+//     parameter UOP_WIDTH = 7 , parameter AMT_REG = 32,
+//     parameter READ_ADDR_SIZE = 32
+// )(
 
-input wire [XLEN          -1: 0] fetch_data,
-input wire [READ_ADDR_SIZE-1: 0] fetch_cur_pc,
-input wire [READ_ADDR_SIZE-1: 0] fetch_nxt_pc,
-input wire                       beforePipReadyToSend,
-input wire                       nextPipReadyToRcv,
-input wire                       rst,
-input wire                       startSig,
-input wire                       interrupt_start,
-input wire                       clk,
+// input wire [XLEN          -1: 0] fetch_data,
+// input wire [READ_ADDR_SIZE-1: 0] fetch_cur_pc,
+// input wire [READ_ADDR_SIZE-1: 0] fetch_nxt_pc,
+// input wire                       beforePipReadyToSend,
+// input wire                       nextPipReadyToRcv,
+// input wire                       rst,
+// input wire                       startSig,
+// input wire                       interrupt_start,
+// input wire                       clk,
 
-input wire                       r1_write_valid,
-input wire [XLEN          -1: 0] r1_write_val,
-input wire                       r1_write_en,
+// input wire                       r1_write_valid,
+// input wire [XLEN          -1: 0] r1_write_val,
+// input wire                       r1_write_en,
 
-input wire                       r2_write_valid,
-input wire [XLEN          -1: 0] r2_write_val,
-input wire                       r2_write_en,
-
-
-
-output wire               curPipReadyToRcv,
-output wire               curPipReadyToSend,
-
-output reg                r1_valid,
-output reg[REG_IDX-1 : 0] r1_idx,
-output reg[XLEN-1 : 0]    r1_val,
-
-output reg                r2_valid,
-output reg[REG_IDX-1 : 0] r2_idx,
-output reg[XLEN-1 : 0]    r2_val,
-
-output reg                r3_valid,
-output reg[REG_IDX-1 : 0] r3_idx,
-output reg[XLEN-1 : 0]    r3_val,
-
-output reg                rd_valid,
-output reg[REG_IDX-1 : 0] rd_idx,
-output reg[XLEN-1 : 0]    rd_val,
-
-output reg                isLsUopUse,
-output reg                isMemLoad,
-output reg[1:0]           ldsize,
-output reg                ldextendMode,
+// input wire                       r2_write_valid,
+// input wire [XLEN          -1: 0] r2_write_val,
+// input wire                       r2_write_en,
 
 
-output reg                isAluUopUse,
-output reg                isAdd,
-output reg                isSub,
-output reg                isXor,
-output reg                isOr,
-output reg                isAnd,
-output reg                isCmpLessThanSign,
-output reg                isCmpLessThanUSign,
-output reg                isShiftLeftLogical,
-output reg                isShiftRightLogical,
-output reg                isShiftRightArith,
+
+// output wire               curPipReadyToRcv,
+// output wire               curPipReadyToSend,
+
+// output reg                r1_valid,
+// output reg[REG_IDX-1 : 0] r1_idx,
+// output reg[XLEN-1 : 0]    r1_val,
+
+// output reg                r2_valid,
+// output reg[REG_IDX-1 : 0] r2_idx,
+// output reg[XLEN-1 : 0]    r2_val,
+
+// output reg                r3_valid,
+// output reg[REG_IDX-1 : 0] r3_idx,
+// output reg[XLEN-1 : 0]    r3_val,
+
+// output reg                rd_valid,
+// output reg[REG_IDX-1 : 0] rd_idx,
+// output reg[XLEN-1 : 0]    rd_val,
+
+// output reg                isLsUopUse,
+// output reg                isMemLoad,
+// output reg[1:0]           ldsize,
+// output reg                ldextendMode,
 
 
-output reg                isJmpUopUse,
-output reg                isJalR,
-output reg                isJal,
-output reg                jumpExtendMode,
-output reg                isEq,
-output reg                isNEq,
-output reg                isLt,
-output reg                isGe,
+// output reg                isAluUopUse,
+// output reg                isAdd,
+// output reg                isSub,
+// output reg                isXor,
+// output reg                isOr,
+// output reg                isAnd,
+// output reg                isCmpLessThanSign,
+// output reg                isCmpLessThanUSign,
+// output reg                isShiftLeftLogical,
+// output reg                isShiftRightLogical,
+// output reg                isShiftRightArith,
 
-output reg                isLdPcUopUse,
-output reg                isNeedPc,
 
-output reg                pc,
-output reg                nextPc
+// output reg                isJmpUopUse,
+// output reg                isJalR,
+// output reg                isJal,
+// output reg                jumpExtendMode,
+// output reg                isEq,
+// output reg                isNEq,
+// output reg                isLt,
+// output reg                isGe,
 
-);
-endmodule
+// output reg                isLdPcUopUse,
+// output reg                isNeedPc,
 
-module execute #(
-    parameter XLEN      = 32, parameter REG_IDX = 5,
-    parameter UOP_WIDTH = 7 , parameter AMT_REG = 32,
-    parameter READ_ADDR_SIZE = 32
-) (
+// output reg                pc,
+// output reg                nextPc
 
-input wire                 beforePipReadyToSend,
-input wire                 nextPipReadyToRcv,
-input wire                 startSig,
-input wire                 rst,
-input wire                 clk,
+// );
+// endmodule
+
+// module execute #(
+//     parameter XLEN      = 32, parameter REG_IDX = 5,
+//     parameter UOP_WIDTH = 7 , parameter AMT_REG = 32,
+//     parameter READ_ADDR_SIZE = 32
+// ) (
+
+// input wire                 beforePipReadyToSend,
+// input wire                 nextPipReadyToRcv,
+// input wire                 startSig,
+// input wire                 rst,
+// input wire                 clk,
     
-input wire                 r1_valid,
-input wire[REG_IDX-1 : 0]  r1_idx,
-input wire[XLEN-1 : 0]     r1_val,
+// input wire                 r1_valid,
+// input wire[REG_IDX-1 : 0]  r1_idx,
+// input wire[XLEN-1 : 0]     r1_val,
 
-input wire                 r2_valid,
-input wire[REG_IDX-1 : 0]  r2_idx,
-input wire[XLEN-1 : 0]     r2_val,
+// input wire                 r2_valid,
+// input wire[REG_IDX-1 : 0]  r2_idx,
+// input wire[XLEN-1 : 0]     r2_val,
 
-input wire                 r3_valid,
-input wire[REG_IDX-1 : 0]  r3_idx,
-input wire[XLEN-1 : 0]     r3_val,
+// input wire                 r3_valid,
+// input wire[REG_IDX-1 : 0]  r3_idx,
+// input wire[XLEN-1 : 0]     r3_val,
 
-input wire                 rd_valid,
-input wire[REG_IDX-1 : 0]  rd_idx,
-input wire[XLEN-1 : 0]     rd_val,
+// input wire                 rd_valid,
+// input wire[REG_IDX-1 : 0]  rd_idx,
+// input wire[XLEN-1 : 0]     rd_val,
 
-input wire                 isLsUopUse,
-input wire                 isMemLoad,
-input wire[1:0]            ldsize,
-input wire                 ldextendMode,
-
-
-input wire                 isAluUopUse,
-input wire                 isAdd,
-input wire                 isSub,
-input wire                 isXor,
-input wire                 isOr,
-input wire                 isAnd,
-input wire                 isCmpLessThanSign,
-input wire                 isCmpLessThanUSign,
-input wire                 isShiftLeftLogical,
-input wire                 isShiftRightLogical,
-input wire                 isShiftRightArith,
+// input wire                 isLsUopUse,
+// input wire                 isMemLoad,
+// input wire[1:0]            ldsize,
+// input wire                 ldextendMode,
 
 
-input wire                 isJmpUopUse,
-input wire                 isJalR,
-input wire                 isJal,
-input wire                 jumpExtendMode,
-input wire                 isEq,
-input wire                 isNEq,
-input wire                 isLt,
-input wire                 isGe,
-
-input wire                 isLdPcUopUse,
-input wire                 isNeedPc,
-
-input wire                 pc,
-input wire                 nextPc,
-
-input wire                 mem_readFin,
-input wire[XLEN-1: 0]      mem_radData,
-
-input wire[REG_IDX-1 : 0] bp_idx,
-input wire[XLEN-1 : 0]    bp_val,
-
-input  wire[XLEN-1 : 0]    regFile1_readData,
-input  wire[XLEN-1 : 0]    regFile2_readData,
-
-input  wire[XLEN-1 : 0]    wb_cur_val,
+// input wire                 isAluUopUse,
+// input wire                 isAdd,
+// input wire                 isSub,
+// input wire                 isXor,
+// input wire                 isOr,
+// input wire                 isAnd,
+// input wire                 isCmpLessThanSign,
+// input wire                 isCmpLessThanUSign,
+// input wire                 isShiftLeftLogical,
+// input wire                 isShiftRightLogical,
+// input wire                 isShiftRightArith,
 
 
+// input wire                 isJmpUopUse,
+// input wire                 isJalR,
+// input wire                 isJal,
+// input wire                 jumpExtendMode,
+// input wire                 isEq,
+// input wire                 isNEq,
+// input wire                 isLt,
+// input wire                 isGe,
 
-output reg                wb_valid,   ///// act as wire
-output reg[REG_IDX-1 : 0] wb_idx,     ///// act as wire
-output reg[XLEN-1 : 0]    wb_val,     ///// act as wire 
-output reg                wb_en_valid,      ///// act as wire valid to valid and idx
-output reg                wb_en_idx,
-output reg                wb_en_data,      ///// act as wire valid to valid and idx
+// input wire                 isLdPcUopUse,
+// input wire                 isNeedPc,
 
+// input wire                 pc,
+// input wire                 nextPc,
 
-output wire                      misPredict,
-output wire[READ_ADDR_SIZE-1: 0] reqPc,
+// input wire                 mem_readFin,
+// input wire[XLEN-1: 0]      mem_radData,
 
-output reg                      mem_readEn,
-output reg[READ_ADDR_SIZE-1: 0] mem_readAddr,
-output reg                      mem_writeEn,
-output reg[READ_ADDR_SIZE-1: 0] mem_writeAddr,
-output reg[XLEN          -1: 0] mem_writeData,
+// input wire[REG_IDX-1 : 0] bp_idx,
+// input wire[XLEN-1 : 0]    bp_val,
 
-output reg[REG_IDX-1: 0]    regFile1_readIdx,
-output reg[REG_IDX-1: 0]    regFile2_readIdx,
+// input  wire[XLEN-1 : 0]    regFile1_readData,
+// input  wire[XLEN-1 : 0]    regFile2_readData,
 
-
-output reg                 r1_write_valid, //// act as wire
-output reg[XLEN-1 : 0]     r1_write_val,   ///// act as wire 
-output reg                 r1_write_en,    ///// act as wire
-
-output reg                 r2_write_valid,
-output reg[XLEN-1 : 0]     r2_write_val,
-output reg                 r2_write_en,
-
-output wire                curPipReadyToRcv,
-output wire                curPipReadyToSend
-
-);
-endmodule
-
-module writeBack #(
-    parameter XLEN = 32, parameter REG_IDX = 5,
-    parameter AMT_REG = 32
-)(
-input wire beforePipReadyToSend,
-input wire nextPipReadyToRcv,
-input wire rst,
-input wire startSig,
-input wire clk,
-
-input wire                wb_valid,
-input wire[REG_IDX-1: 0]  wb_idx,
-input wire[XLEN-1   : 0]  wb_val,
-input wire                wb_en_valid,
-input wire                wb_en_idx,
-input wire                wb_en_data,
-
-output wire curPipReadyToRcv,
-output wire curPipReadyToSend,
-
-output wire[REG_IDX-1: 0] bp_idx,
-output wire[XLEN-1:    0] bp_val,
-
-output wire[REG_IDX-1: 0] regFileWriteIdx,
-output wire[XLEN-1   : 0] regFileWriteVal,
-output wire               regFileWriteEn
-);
-endmodule
-
-module storageMgmt #( ////////////// multiread single write
-    parameter READ_ADDR_SIZE = 28, parameter ROW_WIDTH = 32,
-    parameter AMT_READER = 2 //// writer fix to one 
-) (
-input wire[READ_ADDR_SIZE*AMT_READER-1: 0] readAddrs,
-input wire[AMT_READER-1:                0] readEns,
-
-input wire[READ_ADDR_SIZE-1:            0] writeAddr,
-input wire[ROW_WIDTH-1:                 0] writeData,
-input wire                                 writeEn,
-input wire                                 rst,
-input wire                                 startSig,
-input wire                                 clk,
+// input  wire[XLEN-1 : 0]    wb_cur_val,
 
 
-output reg[AMT_READER-1:                0] readfin,
-output reg[ROW_WIDTH-1 :0]                poolReadData
 
-);
+// output reg                wb_valid,   ///// act as wire
+// output reg[REG_IDX-1 : 0] wb_idx,     ///// act as wire
+// output reg[XLEN-1 : 0]    wb_val,     ///// act as wire 
+// output reg                wb_en_valid,      ///// act as wire valid to valid and idx
+// output reg                wb_en_idx,
+// output reg                wb_en_data,      ///// act as wire valid to valid and idx
 
-endmodule
+
+// output wire                      misPredict,
+// output wire[READ_ADDR_SIZE-1: 0] reqPc,
+
+// output reg                      mem_readEn,
+// output reg[READ_ADDR_SIZE-1: 0] mem_readAddr,
+// output reg                      mem_writeEn,
+// output reg[READ_ADDR_SIZE-1: 0] mem_writeAddr,
+// output reg[XLEN          -1: 0] mem_writeData,
+
+// output reg[REG_IDX-1: 0]    regFile1_readIdx,
+// output reg[REG_IDX-1: 0]    regFile2_readIdx,
+
+
+// output reg                 r1_write_valid, //// act as wire
+// output reg[XLEN-1 : 0]     r1_write_val,   ///// act as wire 
+// output reg                 r1_write_en,    ///// act as wire
+
+// output reg                 r2_write_valid,
+// output reg[XLEN-1 : 0]     r2_write_val,
+// output reg                 r2_write_en,
+
+// output wire                curPipReadyToRcv,
+// output wire                curPipReadyToSend
+
+// );
+// endmodule
+
+// module writeBack #(
+//     parameter XLEN = 32, parameter REG_IDX = 5,
+//     parameter AMT_REG = 32
+// )(
+// input wire beforePipReadyToSend,
+// input wire nextPipReadyToRcv,
+// input wire rst,
+// input wire startSig,
+// input wire clk,
+
+// input wire                wb_valid,
+// input wire[REG_IDX-1: 0]  wb_idx,
+// input wire[XLEN-1   : 0]  wb_val,
+// input wire                wb_en_valid,
+// input wire                wb_en_idx,
+// input wire                wb_en_data,
+
+// output wire curPipReadyToRcv,
+// output wire curPipReadyToSend,
+
+// output wire[REG_IDX-1: 0] bp_idx,
+// output wire[XLEN-1:    0] bp_val,
+
+// output wire[REG_IDX-1: 0] regFileWriteIdx,
+// output wire[XLEN-1   : 0] regFileWriteVal,
+// output wire               regFileWriteEn
+// );
+// endmodule
+
+// module storageMgmt #( ////////////// multiread single write
+//     parameter READ_ADDR_SIZE = 28, parameter ROW_WIDTH = 32,
+//     parameter AMT_READER = 2 //// writer fix to one 
+// ) (
+// input wire[READ_ADDR_SIZE*AMT_READER-1: 0] readAddrs,
+// input wire[AMT_READER-1:                0] readEns,
+
+// input wire[READ_ADDR_SIZE-1:            0] writeAddr,
+// input wire[ROW_WIDTH-1:                 0] writeData,
+// input wire                                 writeEn,
+// input wire                                 rst,
+// input wire                                 startSig,
+// input wire                                 clk,
+
+
+// output reg[AMT_READER-1:                0] readfin,
+// output reg[ROW_WIDTH-1 :0]                poolReadData
+
+// );
+
+// endmodule

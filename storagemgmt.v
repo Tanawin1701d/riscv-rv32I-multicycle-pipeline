@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module storageMgmt #( ////////////// multiread single write
     parameter READ_ADDR_SIZE = 28, parameter ROW_WIDTH = 32,
     parameter AMT_READER = 2 //// writer fix to one 
@@ -14,61 +16,33 @@ input wire                                 clk,
 
 
 output wire[AMT_READER-1:                0] readfin,
-output reg[ROW_WIDTH-1 :0]                poolReadData
+output wire[ROW_WIDTH-1 :0]                 poolReadData
 
 );
 
 
 
 
-wire[READ_ADDR_SIZE-1: 0] readIdxMaster;
-wire[AMT_READER-1    : 0]     actualEnable;
-wire[AMT_READER-1    : 0]     prevfalse;
-
-
-assign readfin = actualEnable;
+wire[READ_ADDR_SIZE-1: 0] readIdxMaster; //// act as wire
 
 reg [ROW_WIDTH-1: 0] mem [0: 2**READ_ADDR_SIZE -1];
 
 
-assign prevfalse[0] = ~readEns[0];
-assign actualEnable[0] = readEns[0];
 
+assign readIdxMaster = readEns[1] ? readAddrs[READ_ADDR_SIZE*2-1 : READ_ADDR_SIZE] :
+                       readEns[0] ? readAddrs[READ_ADDR_SIZE  -1 :              0] :
+                       0;
+assign poolReadData = mem[readIdxMaster];
 
-genvar i;
+assign readfin[1]    = readEns[1];
+assign readfin[0]    = readEns[0] & (~readEns[1]);
 
-generate
-    
-    for (i = 1; i < AMT_READER; i = i + 1)begin
-        
-        assign actualEnable[i] = prevfalse[i-1] & readEns[i];
-        assign prevfalse[i]    = prevfalse[i-1] & (~readEns[i]);
-
-        always @(*) begin
-              if (actualEnable[i]) begin
-                    poolReadData = mem[readAddrs[READ_ADDR_SIZE*(i+1)-1: READ_ADDR_SIZE*(i)]];
-              end
-
-        end
-
-    end
-
-
-endgenerate 
-
-
-always @(*) begin
-    
-    if (actualEnable[0]) begin
-        poolReadData = mem[readAddrs[READ_ADDR_SIZE-1: 0]];
-    end
-
-end
 
 
 always @(posedge  clk) begin
     if (writeEn) begin
-        mem[writeAddr] <<= writeData;
+        $display("save to %d with val %d", writeAddr, writeData);
+        mem[writeAddr] <= writeData;
     end
     
 end

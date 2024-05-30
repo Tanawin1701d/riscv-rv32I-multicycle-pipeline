@@ -29,10 +29,10 @@ module fetch #(
     parameter sendingState   = 3'b010;
     parameter waitSendState  = 3'b100;
 
-    assign mem_readEn        = nextPipReadyToRcv && sendingState;
+    assign mem_readEn        = nextPipReadyToRcv && (pipState == sendingState);
     assign mem_read_addr     = reqPc;
     assign curPipReadyToRcv  =  (pipState == waitBefState)             | (curPipReadyToSend & nextPipReadyToRcv);
-    assign curPipReadyToSend = ((pipState == sendingState) & readFin)  | (pipState == waitSendState);
+    assign curPipReadyToSend = (((pipState == sendingState) & readFin) | (pipState == waitSendState)) & (~interrupt_start);
     
 
 
