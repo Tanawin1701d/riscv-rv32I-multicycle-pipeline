@@ -43,8 +43,16 @@ initial begin
     //     core_dut.storageMgmtBlock.mem[fillMemIdx] = 0;
     // end
 
-    for (fillMemIdx = 0; fillMemIdx < 512; fillMemIdx = fillMemIdx + 1) begin
-        core_dut.storageMgmtBlock.mem[fillMemIdx] = 0;
+    // for (fillMemIdx = 0; fillMemIdx < 512; fillMemIdx = fillMemIdx + 1) begin
+    //     core_dut.storageMgmtBlock.mem[fillMemIdx] = 0;
+    // end
+
+    for(fillMemIdx = 0; fillMemIdx < (1 << 28); fillMemIdx = fillMemIdx + 4)begin
+        core_dut.storageMgmtBlock.mem[fillMemIdx / 4] = 0;
+    end
+
+    for(fillMemIdx = (1 << 20); fillMemIdx < ((1 << 20) + (1024 * 4)); fillMemIdx = fillMemIdx + 4)begin
+        core_dut.storageMgmtBlock.mem[fillMemIdx / 4] = 1024 + ((1 << 20) - fillMemIdx)/4  + 10;
     end
 
     programFileIdx = $fopen("program/WORKLOADARGS/asm.out", "rb");
@@ -103,23 +111,37 @@ initial begin
     startSig = 0;
 end
 
-
+integer cycleCounter = 0;
 
 initial begin
         #(CLK_PEROID/2);
-    for (cycle = 0; cycle < AMT_SIM_CLK; cycle++)begin
+    
+    ///$system("./mesure.sh");
+    while((core_dut.regFile[31] != 1)  &&
+          (cycleCounter < 1048576)
+)begin
         
+        if ((cycleCounter % (1 << 20)) == 0)begin
+            $display("pass %d  cycle", cycleCounter);
+        end
+         
         fetchWriter;
         decodeWriter;
         execWriter;
         writeBackWriter;
-        //writeReg;
-        $fwrite(file, "----------------------- end cycle %d -----------------------\n", cycle);
+        writeReg;
+        $fwrite(file, "\n----------------------- end cycle %d -----------------------\n", cycle);
         //$display("----------------------- end cycle %d -----------------------\n", cycle);
         #CLK_PEROID;
+        cycleCounter = cycleCounter + 1;
 
-    end
-    checkReg;
+end
+
+    /////$system("./mesure.sh");
+    $display("cycle used is %d", cycleCounter);
+    dumpMem1;
+
+    /////////checkReg;
     $fclose(file);
     $fclose(programFileIdx);
     $finish;
@@ -390,6 +412,45 @@ task checkReg;
 
     end
 
+
+endtask
+
+
+
+integer dumpFileIdx;
+integer dumpingIdx;
+
+integer dumpFileIdx2;
+integer dumpingIdx2;
+
+task dumpMem1;
+
+begin
+
+    dumpFileIdx = $fopen("program/WORKLOADARGS/dumpMem1.out", "w");
+
+    if (dumpFileIdx == 0) begin
+        $display("can't open dumpFile1");
+    end
+
+    for(dumpingIdx = (1 << 20); dumpingIdx < ((1 << 20) + (1024 * 4)); dumpingIdx = dumpingIdx + 4)begin
+        $fwrite(dumpFileIdx, "%d \n", core_dut.storageMgmtBlock.mem[dumpingIdx / 4]);
+    end
+    $fclose(dumpFileIdx);
+
+    //////////////////////////////////// file 2
+    dumpFileIdx2 = $fopen("program/WORKLOADARGS/dumpMem2.out", "w");
+
+    if (dumpFileIdx2 == 0) begin
+        $display("can't open dumpFile2");
+    end
+
+    for(dumpingIdx2 = (1 << 21); dumpingIdx2 < ((1 << 21) + (1024 * 4)); dumpingIdx2 = dumpingIdx2 + 4)begin
+        $fwrite(dumpFileIdx2, "%d \n", core_dut.storageMgmtBlock.mem[dumpingIdx2 / 4]);
+    end
+    $fclose(dumpFileIdx2);
+    
+end
 
 endtask
 

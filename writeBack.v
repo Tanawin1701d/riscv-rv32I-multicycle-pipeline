@@ -66,7 +66,7 @@ assign bp_val = ((pipState == sendingState) & writeBack_valid & (writeBack_idx !
 
 assign regFileWriteIdx = writeBack_idx;
 assign regFileWriteVal = writeBack_val;
-assign regFileWriteEn  = (pipState == sendingState);
+assign regFileWriteEn  = (pipState == sendingState) & writeBack_valid & (writeBack_idx != 0);
 
 
 assign curPipReadyToRcv  = (pipState == waitBefState) | (curPipReadyToSend & nextPipReadyToRcv);

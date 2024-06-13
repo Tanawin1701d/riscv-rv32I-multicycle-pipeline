@@ -388,6 +388,12 @@ always @(*) begin
             wb_en_data = 1;
         end
     end else if (pipState == ldstReg) begin
+
+        if (mem_readFin)begin
+            wb_en_valid = 1;
+            wb_valid    = isMemLoad;
+        end
+
         if ( (ldsize == 2'b00) & mem_readFin) begin ///// 8 bit mode
             wb_en_data = 1;
             if (ldextendMode)begin /////// unsigned extend mode

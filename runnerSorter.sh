@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORKLOADS=("Branch" "Imm" "Jump" "Ls" "reg") # workload names
+WORKLOADS=( "sorter" ) # workload names
 
 
 for workload in "${WORKLOADS[@]}"; do
@@ -14,7 +14,7 @@ for workload in "${WORKLOADS[@]}"; do
     fi
 
     ##### augment file
-    cp test.v simulator/test_filled_$workload.v
+    cp testSorter.v simulator/test_filled_$workload.v
     sed -i 's/WORKLOADARGS/'$workload'/g' simulator/test_filled_$workload.v
     chmod +x simulator/test_filled_$workload.v
     

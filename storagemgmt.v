@@ -41,7 +41,7 @@ assign readfin[0]    = readEns[0] & (~readEns[1]);
 
 always @(posedge  clk) begin
     if (writeEn) begin
-        $display("save to %d with val %d", writeAddr, writeData);
+        ///$display("save to %d with val %d", writeAddr, writeData);
         mem[writeAddr] <= writeData;
     end
     
