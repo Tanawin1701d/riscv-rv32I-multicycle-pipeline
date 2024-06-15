@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns/1ns
 
 
 
@@ -109,10 +109,10 @@ initial begin
         #(CLK_PEROID/2);
     for (cycle = 0; cycle < AMT_SIM_CLK; cycle++)begin
         
-        fetchWriter;
-        decodeWriter;
-        execWriter;
-        writeBackWriter;
+        //fetchWriter;
+        //decodeWriter;
+        //execWriter;
+        //writeBackWriter;
         //writeReg;
         $fwrite(file, "----------------------- end cycle %d -----------------------\n", cycle);
         //$display("----------------------- end cycle %d -----------------------\n", cycle);

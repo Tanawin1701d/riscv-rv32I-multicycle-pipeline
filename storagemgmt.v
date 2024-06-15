@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns/1ns
 
 module storageMgmt #( ////////////// multiread single write
     parameter READ_ADDR_SIZE = 28, parameter ROW_WIDTH = 32,

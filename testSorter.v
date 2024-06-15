@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns/1ns
 
 
 
@@ -10,7 +10,7 @@ reg rst;
 reg startSig;
 
 
-parameter CLK_PEROID = 10;
+parameter CLK_PEROID = 20;
 parameter AMT_SIM_CLK = 300;
 parameter REG_WIDTH       = 32;
 integer cycle = 0;
@@ -125,12 +125,12 @@ initial begin
             $display("pass %d  cycle", cycleCounter);
         end
          
-        fetchWriter;
-        decodeWriter;
-        execWriter;
-        writeBackWriter;
-        writeReg;
-        $fwrite(file, "\n----------------------- end cycle %d -----------------------\n", cycle);
+        //fetchWriter;
+        //decodeWriter;
+        //execWriter;
+        //writeBackWriter;
+        //writeReg;
+        //$fwrite(file, "\n----------------------- end cycle %d -----------------------\n", cycle);
         //$display("----------------------- end cycle %d -----------------------\n", cycle);
         #CLK_PEROID;
         cycleCounter = cycleCounter + 1;

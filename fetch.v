@@ -1,3 +1,5 @@
+`timescale 1ns/1ns
+
 module fetch #(
     parameter XLEN = 32,
     parameter READ_ADDR_SIZE = 32

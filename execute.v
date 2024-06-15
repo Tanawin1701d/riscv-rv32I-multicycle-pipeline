@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns/1ns
 
 module execute #(
     parameter XLEN      = 32, parameter REG_IDX = 5,
