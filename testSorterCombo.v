@@ -13,7 +13,9 @@ reg startSig;
 parameter CLK_PEROID = 20;
 parameter AMT_SIM_CLK = 300;
 parameter REG_WIDTH       = 32;
+parameter AMT_TEST_CASE   = 9;
 integer cycle = 0;
+
 
 integer PRINTROW_PERCYCLE = 10;
 integer COLWIDTH          = 25;
@@ -47,39 +49,18 @@ initial begin
     //     core_dut.storageMgmtBlock.mem[fillMemIdx] = 0;
     // end
 
-    for(fillMemIdx = 0; fillMemIdx < (1 << 28); fillMemIdx = fillMemIdx + 4)begin
-        core_dut.storageMgmtBlock.mem[fillMemIdx / 4] = 0;
-    end
-
-    for(fillMemIdx = (1 << 20); fillMemIdx < ((1 << 20) + (1024 * 4)); fillMemIdx = fillMemIdx + 4)begin
-        core_dut.storageMgmtBlock.mem[fillMemIdx / 4] = 1024 + ((1 << 20) - fillMemIdx)/4  + 10;
-    end
-
-    programFileIdx = $fopen("program/WORKLOADARGS/asm.out", "rb");
-    programReadStatus = $fread(core_dut.storageMgmtBlock.mem, programFileIdx);
-    if (programReadStatus == 0) begin
-        $display("error: could not read programfile");
-        $finish;
-    end
-    for (swapping = 0; swapping < AMOUNT_SWAP; swapping = swapping + 1) begin
-        core_dut.storageMgmtBlock.mem[swapping] = {
-            core_dut.storageMgmtBlock.mem[swapping][  8-1 :  0],
-            core_dut.storageMgmtBlock.mem[swapping][ 16-1 :  8],
-            core_dut.storageMgmtBlock.mem[swapping][ 24-1 : 16],
-            core_dut.storageMgmtBlock.mem[swapping][ 32-1 : 24]
-        };
-    end
+    
 
 end
 
 
 //////////////// clear register
-integer regIdx = 0;
-initial begin
-    for (regIdx = 0; regIdx < AMT_REG; regIdx++)begin
-        core_dut.regFile[regIdx] = 0;
-    end
-end
+// integer regIdx = 0;
+// initial begin
+//     for (regIdx = 0; regIdx < AMT_REG; regIdx++)begin
+//         core_dut.regFile[regIdx] = 0;
+//     end
+// end
 
 /////////////// test register
 
@@ -100,48 +81,104 @@ initial begin
 end
 
 
-initial begin
-    rst      = 1;
-    startSig = 0;
-    #CLK_PEROID;
-    rst      = 0;
-    startSig = 1;
-    #CLK_PEROID;
-    rst      = 0;
-    startSig = 0;
-end
+// initial begin
+//     rst      = 1;
+//     startSig = 0;
+//     #CLK_PEROID;
+//     rst      = 0;
+//     startSig = 1;
+//     #CLK_PEROID;
+//     rst      = 0;
+//     startSig = 0;
+// end
 
 integer cycleCounter = 0;
+
+
+integer testCaseId  = 0;
+integer amountValue = 0;
+integer regIdx      = 0;
+wire[7:0] idxStr    = 48;
+reg[255*8-1: 0] asmLoadName;
 
 initial begin
     
     ////$system("ls -al");
     #(CLK_PEROID/2);
-    $wallClockStart;
-    while((core_dut.regFile[31] != 1) )begin
-        
-        // if ((cycleCounter % (1 << 20)) == 0)begin
-        //     $display("pass %d  cycle", cycleCounter);
-        // end
-         
-        //fetchWriter;
-        //decodeWriter;
-        //execWriter;
-        //writeBackWriter;
-        //writeReg;
-        //$fwrite(file, "\n----------------------- end cycle %d -----------------------\n", cycle);
-        //$display("----------------------- end cycle %d -----------------------\n", cycle);
+    for (testCaseId = 0; testCaseId < AMT_TEST_CASE; testCaseId = testCaseId + 1) begin
+        cycleCounter = 0;
+        //////////////// reset clock and program counter
+        rst      = 1;
+        startSig = 0;
         #CLK_PEROID;
-        cycleCounter = cycleCounter + 1;
+        rst      = 0;
+        startSig = 1;
+        core_dut.pc = 0;
+        #CLK_PEROID;
+        rst      = 0;
+        startSig = 0;
 
-end
-    $wallClockStop;
-    $wallClockElapse;
-    /////$system("./mesure.sh");
-    $display("cycle used is %d", cycleCounter);
-    dumpMem1;
+        ///////////////// reset register
+        for (regIdx = 0; regIdx < AMT_REG; regIdx++)begin
+            core_dut.regFile[regIdx] = 0;
+        end
+        asmLoadName = {"program/WORKLOADARGS/asm", idxStr + testCaseId[7:0],".out"};
+        $display("%s", asmLoadName);
+        ///////////////// reset memory file
+        for(fillMemIdx = 0; fillMemIdx < (1 << 28); fillMemIdx = fillMemIdx + 4)begin
+        core_dut.storageMgmtBlock.mem[fillMemIdx / 4] = 0;
+        end
 
-    /////////checkReg;
+        amountValue = 1 << (10 + testCaseId);
+
+        for(fillMemIdx = (1 << 20); fillMemIdx < ((1 << 20) + (amountValue*4)); fillMemIdx = fillMemIdx + 4)begin
+            core_dut.storageMgmtBlock.mem[fillMemIdx / 4] = amountValue + ((1 << 20) - fillMemIdx)/4  + 10;
+        end
+        ///dumpMem1(testCaseId);
+        //////////////// read data to memory
+        programFileIdx = $fopen(asmLoadName, "rb");
+        programReadStatus = $fread(core_dut.storageMgmtBlock.mem, programFileIdx);
+        if (programReadStatus == 0) begin
+            $display("error: could not read programfile");
+            $finish;
+        end
+        for (swapping = 0; swapping < AMOUNT_SWAP; swapping = swapping + 1) begin
+            core_dut.storageMgmtBlock.mem[swapping] = {
+                core_dut.storageMgmtBlock.mem[swapping][  8-1 :  0],
+                core_dut.storageMgmtBlock.mem[swapping][ 16-1 :  8],
+                core_dut.storageMgmtBlock.mem[swapping][ 24-1 : 16],
+                core_dut.storageMgmtBlock.mem[swapping][ 32-1 : 24]
+            };
+        end
+
+        $wallClockStart;
+        while((core_dut.regFile[31] != 1) )begin
+
+            // if ((cycleCounter % (1 << 20)) == 0)begin
+            //     $display("pass %d  cycle", cycleCounter);
+            // end
+
+            //fetchWriter;
+            //decodeWriter;
+            //execWriter;
+            //writeBackWriter;
+            //writeReg;
+            //$fwrite(file, "\n----------------------- end cycle %d -----------------------\n", cycle);
+            //$display("----------------------- end cycle %d -----------------------\n", cycle);
+            #CLK_PEROID;
+            cycleCounter = cycleCounter + 1;
+
+        end
+        $wallClockStop;
+        $wallClockElapse;
+        /////$system("./mesure.sh");
+        $display("cycle used is %d", cycleCounter);
+        dumpMem1(testCaseId);      
+
+    end
+
+
+
     $fclose(file);
     $fclose(programFileIdx);
     $finish;
@@ -423,29 +460,35 @@ integer dumpingIdx;
 integer dumpFileIdx2;
 integer dumpingIdx2;
 
+integer amountDump;
+
 task dumpMem1;
+
+input integer idx;
 
 begin
 
-    dumpFileIdx = $fopen("program/WORKLOADARGS/dumpMem1.out", "w");
+    dumpFileIdx = $fopen({"program/WORKLOADARGS/dumpMem1_",idxStr + idx[7:0],".out"}, "w");
 
     if (dumpFileIdx == 0) begin
         $display("can't open dumpFile1");
     end
 
-    for(dumpingIdx = (1 << 20); dumpingIdx < ((1 << 20) + (1024 * 4)); dumpingIdx = dumpingIdx + 4)begin
+    amountDump = 1 << (10 + idx);
+
+    for(dumpingIdx = (1 << 20); dumpingIdx < ((1 << 20) + (amountDump * 4)); dumpingIdx = dumpingIdx + 4)begin
         $fwrite(dumpFileIdx, "%d \n", core_dut.storageMgmtBlock.mem[dumpingIdx / 4]);
     end
     $fclose(dumpFileIdx);
 
     //////////////////////////////////// file 2
-    dumpFileIdx2 = $fopen("program/WORKLOADARGS/dumpMem2.out", "w");
+    dumpFileIdx2 = $fopen({"program/WORKLOADARGS/dumpMem2_",idxStr + idx[7:0],".out"}, "w");
 
     if (dumpFileIdx2 == 0) begin
         $display("can't open dumpFile2");
     end
 
-    for(dumpingIdx2 = (1 << 21); dumpingIdx2 < ((1 << 21) + (1024 * 4)); dumpingIdx2 = dumpingIdx2 + 4)begin
+    for(dumpingIdx2 = (1 << 21); dumpingIdx2 < ((1 << 21) + (amountDump * 4)); dumpingIdx2 = dumpingIdx2 + 4)begin
         $fwrite(dumpFileIdx2, "%d \n", core_dut.storageMgmtBlock.mem[dumpingIdx2 / 4]);
     end
     $fclose(dumpFileIdx2);

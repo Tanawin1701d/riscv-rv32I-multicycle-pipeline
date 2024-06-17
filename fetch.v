@@ -40,7 +40,7 @@ module fetch #(
 
     always @(posedge clk) begin
 
-        if (sendingState && readFin)begin
+        if ((pipState == sendingState) && readFin)begin
             fetch_data <= mem_read_data;
             fetch_cur_pc <= reqPc;
             fetch_nxt_pc <= reqPc + 4;

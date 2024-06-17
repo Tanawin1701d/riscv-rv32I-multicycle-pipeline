@@ -14,7 +14,7 @@ for workload in "${WORKLOADS[@]}"; do
     fi
 
     ##### augment file
-    cp testSorter.v simulator/test_filled_$workload.v
+    cp testSorterCombo.v simulator/test_filled_$workload.v
     sed -i 's/WORKLOADARGS/'$workload'/g' simulator/test_filled_$workload.v
     chmod +x simulator/test_filled_$workload.v
     
