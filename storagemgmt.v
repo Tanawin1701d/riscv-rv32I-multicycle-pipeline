@@ -5,7 +5,9 @@ module storageMgmt #( ////////////// multiread single write
     parameter AMT_READER = 2 //// writer fix to one 
 ) (
 input wire[READ_ADDR_SIZE*AMT_READER-1: 0] readAddrs,
-input wire[AMT_READER-1:                0] readEns,
+//input wire[AMT_READER-1:                0] readEns,
+input wire                                 readEns0,
+input wire                                 readEns1,
 
 input wire[READ_ADDR_SIZE-1:            0] writeAddr,
 input wire[ROW_WIDTH-1:                 0] writeData,
@@ -14,8 +16,9 @@ input wire                                 rst,
 input wire                                 startSig,
 input wire                                 clk,
 
+output wire                                 readfin0,
+output wire                                 readfin1,
 
-output wire[AMT_READER-1:                0] readfin,
 output wire[ROW_WIDTH-1 :0]                 poolReadData
 
 );
@@ -29,13 +32,13 @@ reg [ROW_WIDTH-1: 0] mem [0: 2**READ_ADDR_SIZE -1];
 
 
 
-assign readIdxMaster = readEns[1] ? readAddrs[READ_ADDR_SIZE*2-1 : READ_ADDR_SIZE] :
-                       readEns[0] ? readAddrs[READ_ADDR_SIZE  -1 :              0] :
+assign readIdxMaster = readEns1 ? readAddrs[READ_ADDR_SIZE*2-1 : READ_ADDR_SIZE] :
+                       readEns0 ? readAddrs[READ_ADDR_SIZE  -1 :              0] :
                        0;
 assign poolReadData = mem[readIdxMaster];
 
-assign readfin[1]    = readEns[1];
-assign readfin[0]    = readEns[0] & (~readEns[1]);
+assign readfin1    = readEns1;
+assign readfin0    = readEns0 & (~readEns1);
 
 
 

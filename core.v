@@ -421,8 +421,10 @@ execute #(.XLEN(XLEN), .REG_IDX(REG_IDX),
         .READ_ADDR_SIZE(MEM_BIT_SIZE), .ROW_WIDTH(ROW_WIDTH),
         .AMT_READER(AMT_READER)
     ) storageMgmtBlock (
-        .readAddrs({mem_readAddr2[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT], mem_readAddr1[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT]}),
-        .readEns({mem_readEn2, mem_readEn1}),
+        .readAddrs({mem_readAddr2[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT], 
+                    mem_readAddr1[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT]}),
+        .readEns0(mem_readEn1),
+        .readEns1(mem_readEn2),
         
         .writeAddr(mem_writeAddr1[MEM_START_BIT + MEM_BIT_SIZE -1:MEM_START_BIT]),
         .writeData(mem_writeData1),
@@ -431,7 +433,9 @@ execute #(.XLEN(XLEN), .REG_IDX(REG_IDX),
         .startSig(startSig),
         .clk(clk),
 
-        .readfin({mem_readFin2, mem_readFin1}),
+        .readfin0(mem_readFin1),
+        .readfin1(mem_readFin2),
+
         .poolReadData(mem_readPool)
     );
 
