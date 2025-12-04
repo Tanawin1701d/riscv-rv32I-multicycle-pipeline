@@ -25,16 +25,15 @@ module fetch #(
     
 );
 
-    reg[3-1: 0] pipState;
-    parameter idleState      = 3'b000;
-    parameter waitBefState   = 3'b001;
-    parameter sendingState   = 3'b010;
-    parameter waitSendState  = 3'b100;
+    reg[2-1: 0] pipState;
+    parameter idleState      = 2'b00;
+    parameter waitBefState   = 2'b01;
+    parameter sendingState   = 2'b10;
 
     assign mem_readEn        = nextPipReadyToRcv && (pipState == sendingState);
     assign mem_read_addr     = reqPc;
-    assign curPipReadyToRcv  =  (pipState == waitBefState)             | (curPipReadyToSend & nextPipReadyToRcv);
-    assign curPipReadyToSend = (((pipState == sendingState) & readFin) | (pipState == waitSendState)) & (~interrupt_start);
+    assign curPipReadyToRcv  = (pipState == waitBefState) | (curPipReadyToSend & nextPipReadyToRcv);
+    assign curPipReadyToSend = ((pipState == sendingState) & readFin) & (~interrupt_start);
     
 
 
@@ -50,62 +49,25 @@ module fetch #(
 
     /**state**/
 
-    always @(posedge clk ) begin
-
-        if (rst) begin
-            pipState <= idleState;
+    always @(posedge clk)begin
         
-        end else if (startSig) begin
-            
-            if (beforePipReadyToSend) begin
-                pipState <= sendingState;
-            end else begin
-                pipState <= waitBefState;
-            end
-
-        end else if (interrupt_start) begin
+        if (rst)begin
+            pipState <= idleState;
+        end else if (startSig | interrupt_start) begin // start system
+            pipState <= waitBefState;
             if (beforePipReadyToSend)begin
-                pipState <= sendingState;
-            end else begin
-                pipState <= waitBefState;
+               pipState <= sendingState; 
             end
         end else begin
-
-            if (pipState == waitBefState)begin
-                if (beforePipReadyToSend) begin
-                    pipState <= sendingState;
-                end  else begin
-                    pipState <= waitBefState;
-                end
-            end else if (pipState == sendingState) begin
-                if (readFin) begin
-                        if (nextPipReadyToRcv) begin
-                            if (beforePipReadyToSend) begin
-                                pipState <= sendingState; ///// next loop
-                            end else begin
-                                pipState <= waitBefState;
-                            end
-                        end else begin
-                            pipState <= waitSendState;
-                        end
-
-                end else begin
-                            pipState <= sendingState;
-                end
-            end else if (pipState == waitSendState) begin
-                if (nextPipReadyToRcv) begin
-                    if (beforePipReadyToSend) begin
-                        pipState <= sendingState;
-                    end else begin
-                        pipState <= waitBefState;
-                    end
-                end else begin
-                    pipState <= waitSendState;
-                end
-            end else begin
-                pipState <= idleState;
+            if ((pipState == waitBefState) & beforePipReadyToSend) begin
+                pipState <= sendingState;
+            end else if ((pipState == sendingState) &  nextPipReadyToRcv)begin 
+                /// sending but how
+                pipState <= beforePipReadyToSend ? sendingState : waitBefState;
             end
         end
+
     end
+
 
 endmodule

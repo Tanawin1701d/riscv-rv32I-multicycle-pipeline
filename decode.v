@@ -113,12 +113,10 @@ parameter loadSizeBit_h = 14; parameter loadSizeBit_l = 12;
 parameter loadExtendModeBit = 14; 
 
 
-reg[3-1: 0] pipState;
-parameter idleState      = 3'b000;
-parameter waitBefState   = 3'b001;
-parameter sendingState   = 3'b010;
-parameter waitSendState  = 3'b100;
-
+reg[2-1: 0] pipState;
+parameter idleState      = 2'b00;
+parameter waitBefState   = 2'b01;
+parameter sendingState   = 2'b10;
 
 parameter LOADSIZE_BIT_l  = FUNCT3_l;
 parameter LOADSIZE_BIT_h  = FUNCT3_l + 2;
@@ -126,61 +124,30 @@ parameter LOADSIZE_BIT_h  = FUNCT3_l + 2;
 wire[UOP_WIDTH-1: 0] op = fetch_data[UOP_WIDTH-1:0];
 
 assign curPipReadyToRcv  = (pipState == waitBefState) | (curPipReadyToSend & nextPipReadyToRcv);
-assign curPipReadyToSend = (( (pipState == sendingState) & nextPipReadyToRcv) | (pipState == waitSendState)) & (~interrupt_start);
+assign curPipReadyToSend = ( (pipState == sendingState) & nextPipReadyToRcv) & (~interrupt_start);
 
 
 
-always @(posedge clk ) begin
+    /**state**/
 
-        if (rst) begin
-            pipState <= idleState;
+    always @(posedge clk)begin
         
-        end else if (startSig) begin
-            
-            if (beforePipReadyToSend) begin
-                pipState <= sendingState;
-            end else begin
-                pipState <= waitBefState;
-            end
-
-        end else if (interrupt_start) begin
+        if (rst)begin
+            pipState <= idleState;
+        end else if (startSig | interrupt_start) begin // start system
+            pipState <= waitBefState;
             if (beforePipReadyToSend)begin
-                pipState <= sendingState;
-            end else begin
-                pipState <= waitBefState;
+               pipState <= sendingState; 
             end
         end else begin
-
-            if (pipState == waitBefState)begin
-                if (beforePipReadyToSend) begin
-                    pipState <= sendingState;
-                end  else begin
-                    pipState <= waitBefState;
-                end
-            end else if (pipState == sendingState) begin
-                if (nextPipReadyToRcv) begin
-                    if (beforePipReadyToSend) begin
-                        pipState <= sendingState;
-                    end else begin
-                        pipState <= waitBefState;
-                    end
-                end else begin
-                    pipState <= sendingState;
-                end
-            end else if (pipState == waitSendState) begin
-                if (nextPipReadyToRcv) begin
-                    if (beforePipReadyToSend) begin
-                        pipState <= sendingState;
-                    end else begin
-                        pipState <= waitBefState;
-                    end
-                end else begin
-                    pipState <= waitSendState;
-                end
-            end else begin
-                pipState <= idleState;
+            if ((pipState == waitBefState) & beforePipReadyToSend) begin
+                pipState <= sendingState;
+            end else if ((pipState == sendingState) &  nextPipReadyToRcv)begin 
+                /// sending but how
+                pipState <= beforePipReadyToSend ? sendingState : waitBefState;
             end
         end
+
     end
 
 
@@ -488,11 +455,6 @@ always @(posedge clk ) begin
                 isLdPcUopUse <= 0;
             end
         end
-    
-    end
-
-    //////// control register in case not decoding
-    always @(posedge clk) begin
 
         if (r1_write_en)begin
             r1_valid <= r1_write_valid;

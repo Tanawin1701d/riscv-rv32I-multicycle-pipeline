@@ -137,8 +137,7 @@ assign curPipReadyToSend =
     r2_val[4:0] <= 1
 ) |
 ((pipState == simpleExec) & ( isJmpUopUse | isLdPcUopUse)) |
-( (pipState == ldstReg) & (isLsUopUse) & (mem_readFin))|
-(pipState == waitSendState);
+( (pipState == ldstReg) & (isLsUopUse) & (mem_readFin));
 
 wire cmpLtSign = (r1_val[XLEN-1] & (~r2_val[XLEN-1])) | 
                  ((r1_val[XLEN-1] == r2_val[XLEN-1]) & (r1_val[XLEN-2: 0] < r2_val[XLEN-2: 0]));
@@ -194,14 +193,13 @@ always @(posedge clk ) begin
                 if (  ~(isLsUopUse | 
                       (isAluUopUse & (isShiftLeftLogical | isShiftRightLogical | isShiftRightArith))
                       )) begin
-                    if (nextPipReadyToRcv)begin
+                    if (nextPipReadyToRcv)begin   /// even though, we sure about wb stage is ready to receive but 
+                                                  /// we have to build if there is an upgrade in the future
                         if (beforePipReadyToSend) begin
                             pipState <= regAccess;
                         end else begin
                             pipState <= waitBefState;
                         end
-                    end else begin
-                        pipState <= waitSendState;
                     end
                 end
 
@@ -226,20 +224,8 @@ always @(posedge clk ) begin
                                 end else begin
                                     pipState <= waitBefState;
                                 end
-                            end else begin
-                                pipState <= waitSendState;
                             end          
 
-            end else if (pipState == waitSendState) begin
-                if (nextPipReadyToRcv) begin
-                    if (beforePipReadyToSend) begin
-                        pipState <= regAccess;
-                    end else begin
-                        pipState <= waitBefState;
-                    end
-                end else begin
-                    pipState <= waitSendState;
-                end
             end else begin
                 pipState <= idleState;
             end
