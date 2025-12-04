@@ -70,8 +70,7 @@ end
 
 core core_dut (
     .clk(clk),
-    .rst(rst),
-    .startSig(startSig)
+    .rst(rst)
 );
 
 
@@ -204,8 +203,6 @@ task fetchWriter;
             end else begin
                 $fwrite(file, "fetch    : REQUESTING addr 0x%h \n", core_dut.fetchBlock.mem_read_addr);
             end
-        end else if (core_dut.fetchBlock.pipState == core_dut.fetchBlock.waitSendState) begin
-            $fwrite(file, "fetch    : WAIT_SEND\n");
         end else begin
             $fwrite(file, "fetch    : error\n");
         end
@@ -255,8 +252,6 @@ task decodeWriter;
             end else begin
                 $fwrite(file, "decode   : wait EXECUTING BLOCKED \n");
             end
-        end else if (core_dut.decoderBlock.pipState == core_dut.decoderBlock.waitSendState) begin
-            $fwrite(file, "decode   : WAIT_SEND\n");
         end else begin
             $fwrite(file, "decode   : error\n");
         end
@@ -347,8 +342,6 @@ task execWriter;
                                                 core_dut.storageMgmtBlock.readIdxMaster,
                                                 core_dut.storageMgmtBlock.poolReadData
                                                 );
-        end else if (core_dut.execBlock.pipState == core_dut.execBlock.waitSendState) begin
-            $fwrite(file, "exec     : WAIT_SEND\n");
         end else begin
             $fwrite(file, "exec     : error\n");
         end
@@ -376,8 +369,6 @@ task writeBackWriter;
             end
             
 
-        end else if (core_dut.writeBackBlock.pipState == core_dut.writeBackBlock.waitSendState) begin
-            $fwrite(file, "wb       : WAIT_SEND\n");
         end else begin
             $fwrite(file, "wb       : error\n");
         end

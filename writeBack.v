@@ -78,31 +78,21 @@ always @(posedge clk ) begin
 
         if (rst) begin
             pipState <= idleState;
-        
-        end else if (startSig) begin
-            
-            if (beforePipReadyToSend) begin
-                pipState <= sendingState;
-            end else begin
-                pipState <= waitBefState;
-            end
         end else begin
 
-            if (pipState == waitBefState)begin
+            if (pipState == waitBefState | startSig)begin
                 if (beforePipReadyToSend) begin
                     pipState <= sendingState;
                 end  else begin
                     pipState <= waitBefState;
                 end
-            end else if ( (pipState == sendingState) | (pipState == waitSendState)) begin
-                if (nextPipReadyToRcv) begin
+            end else if ( (pipState == sendingState)) begin
+                if (nextPipReadyToRcv) begin //// in case there is next pipe connect with it
                     if (beforePipReadyToSend) begin
                         pipState <= sendingState;
                     end else begin
                         pipState <= waitBefState;
                     end
-                end else begin
-                    pipState <= waitSendState;
                 end
             end else begin
                 pipState <= idleState;

@@ -3,7 +3,9 @@
 module core(
     input wire clk,
     input wire rst,
-    input wire startSig
+    output wire[REG_IDX-1: 0] regFilelWriteIdxAgent,
+    output wire[XLEN-1   : 0] regFileWriteValAgent,
+    output wire               regFileWriteEnAgent
 );
 
 
@@ -156,6 +158,10 @@ wire[REG_IDX-1: 0] regFilelWriteIdx;
 wire[XLEN-1   : 0] regFileWriteVal;
 wire               regFileWriteEn;
 
+assign regFilelWriteIdxAgent = regFilelWriteIdx;
+assign regFileWriteValAgent = regFileWriteVal;
+assign regFileWriteEnAgent = regFileWriteEn;
+
 
 always@(posedge clk)begin
 
@@ -163,6 +169,17 @@ always@(posedge clk)begin
             regFile[regFilelWriteIdx] <= regFileWriteVal;
         end
 
+end
+
+reg startSig;
+
+always @(posedge clk) begin
+
+    startSig <= 0;    
+    if (rst) begin
+        startSig <= 1;
+    end
+    
 end
 
 
